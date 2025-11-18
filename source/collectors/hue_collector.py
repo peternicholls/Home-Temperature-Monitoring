@@ -438,22 +438,67 @@ Examples:
         sensors = discover_sensors(bridge, config)
         
         if sensors:
-            print("\nDiscovered Sensors:")
-            print("-" * 70)
-            for sensor in sensors:
-                status = "✓" if sensor['is_reachable'] else "✗"
-                battery = f"{sensor['battery_level']}%" if sensor['battery_level'] else "N/A"
-                print(f"{status} {sensor['location']}")
-                print(f"  ID: {sensor['unique_id']}")
-                print(f"  Model: {sensor['model_id']}")
-                print(f"  Battery: {battery}")
+            print("\n" + "=" * 80)
+            print("🌡️  DISCOVERED TEMPERATURE SENSORS")
+            print("=" * 80 + "\n")
+            for i, sensor in enumerate(sensors, 1):
+                status_icon = "✅" if sensor['is_reachable'] else "⚠️"
+                battery = sensor['battery_level'] if sensor['battery_level'] else None
+                
+                # Color and status
+                if sensor['is_reachable']:
+                    status = "Online"
+                else:
+                    status = "Offline"
+                
+                # Battery color
+                if battery:
+                    if battery >= 75:
+                        batt_emoji = "🟢"
+                    elif battery >= 50:
+                        batt_emoji = "🟡"
+                    else:
+                        batt_emoji = "🔴"
+                    battery_str = f"{batt_emoji} {battery}%"
+                else:
+                    battery_str = "N/A"
+                
+                print(f"{status_icon} Sensor {i}: {sensor['location']}")
+                print(f"   Status: {status}")
+                print(f"   Device ID: {sensor['unique_id'][:20]}...")
+                print(f"   Model: {sensor['model_id']}")
+                print(f"   Battery: {battery_str}")
                 print()
+            
+            print("=" * 80)
+            print(f"📊 Total: {len(sensors)} sensor(s) found\n")
         
     elif args.collect_once:
         logger.info("=" * 70)
         logger.info("SINGLE COLLECTION CYCLE")
         logger.info("=" * 70)
         readings = collect_all_readings(bridge, config)
+        
+        # Pretty print results
+        print("\n" + "=" * 80)
+        print("📈 COLLECTION RESULTS")
+        print("=" * 80 + "\n")
+        
+        if readings:
+            for reading in readings:
+                anomaly_icon = "⚠️" if reading.get('is_anomalous') else "✅"
+                temp = reading.get('temperature_celsius', 'N/A')
+                location = reading.get('location', 'Unknown')
+                battery = reading.get('battery_level')
+                
+                print(f"{anomaly_icon} {location}: {temp:.2f}°C", end="")
+                if battery:
+                    print(f" [Battery: {battery}%]", end="")
+                print()
+            
+            print(f"\n✨ Collected {len(readings)} reading(s)")
+        
+        print("\n" + "=" * 80)
         store_readings(readings, config)
         
     elif args.continuous:
