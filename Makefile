@@ -35,8 +35,9 @@ help: ## Show this help message
 	@echo "  make logs-clear     - Clear all log files"
 	@echo ""
 	@echo "$(GREEN)Testing:$(NC)"
-	@echo "  make test           - Run full integration test (auth, discover, collect, store)"
-	@echo "  make test-quick     - Quick test (just discovery and one collection)"
+	@echo "  make test           - Quick test (just collect once)"
+	@echo "  make test-discover  - Test with discovery + collection"
+	@echo "  make test-full      - Run full integration test (auth, discover, collect, store)"
 	@echo ""
 	@echo "$(GREEN)Development:$(NC)"
 	@echo "  make lint           - Check Python files with pylint"
@@ -136,7 +137,22 @@ logs-clear: ## Clear all log files
 	@echo "$(GREEN)✓ Logs cleared!$(NC)"
 
 # Testing
-test: ## Run full integration test
+test: ## Quick test (just collect once)
+	@echo "$(BLUE)Running quick test...$(NC)"
+	@echo ""
+	@echo "$(BLUE)Collecting readings...$(NC)"
+	@. venv/bin/activate && python source/collectors/hue_collector.py --collect-once
+
+test-discover: ## Test with discovery + collection
+	@echo "$(BLUE)Running discovery test...$(NC)"
+	@echo ""
+	@echo "$(BLUE)1. Discovering sensors...$(NC)"
+	@. venv/bin/activate && python source/collectors/hue_collector.py --discover
+	@echo ""
+	@echo "$(BLUE)2. Collecting once...$(NC)"
+	@. venv/bin/activate && python source/collectors/hue_collector.py --collect-once
+
+test-full: ## Run full integration test
 	@echo "$(BLUE)Running full integration test...$(NC)"
 	@echo ""
 	@echo "$(BLUE)1. Discovering sensors...$(NC)"
@@ -147,15 +163,6 @@ test: ## Run full integration test
 	@echo ""
 	@echo "$(BLUE)3. Verifying database...$(NC)"
 	. venv/bin/activate && python3 -c "import sqlite3; conn = sqlite3.connect('data/readings.db'); cursor = conn.execute('SELECT COUNT(*) FROM readings'); count = cursor.fetchone()[0]; print(f'Total readings in database: {count}'); print('\033[0;32m✓ Test passed! Data was stored successfully.\033[0m' if count > 0 else '\033[0;31m✗ Test failed! No data in database.\033[0m'); conn.close()"
-
-test-quick: ## Quick test (discovery + one collection)
-	@echo "$(BLUE)Running quick test...$(NC)"
-	@echo ""
-	@echo "$(BLUE)1. Discovering sensors...$(NC)"
-	@. venv/bin/activate && python source/collectors/hue_collector.py --discover
-	@echo ""
-	@echo "$(BLUE)2. Collecting once...$(NC)"
-	@. venv/bin/activate && python source/collectors/hue_collector.py --collect-once
 
 # Development tools
 lint: ## Check Python files with pylint
