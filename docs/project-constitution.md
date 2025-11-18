@@ -77,6 +77,15 @@ Collect temperature readings from home IoT sensors (Philips Hue and Google Nest)
 - **Goal**: Deliver one complete feature
 - **Components**: Multiple stories, each with tasks
 - **Output**: Working, committed code + documentation
+- **Branch**: Named `sprint-N-name` created from `main`
+- **Documentation**: `specification.md` and `plan.md` in `sprints/sprint-N-name/`
+
+### Sprint Workflow
+1. **Planning**: Create sprint branch, write specification.md and plan.md
+2. **Development**: Implement stories/tasks on sprint branch
+3. **Validation**: Verify deliverables meet acceptance criteria
+4. **Merge**: Merge sprint branch to `main` when complete
+5. **Retrospective**: Update plan.md with outcomes and learnings
 
 ### Definition of Done (per Sprint)
 - [ ] Feature implemented and tested
@@ -89,8 +98,15 @@ Collect temperature readings from home IoT sensors (Philips Hue and Google Nest)
 
 ### Branch Strategy
 - `main`: Stable, working code
-- `feature/*`: Feature development branches
+- `sprint-0-foundation`: Sprint 0 development
+- `sprint-1-hue`: Sprint 1 development  
+- `sprint-2-nest`: Sprint 2 development
+- `sprint-3-automation`: Sprint 3 development
+- `sprint-4-quality`: Sprint 4 development
+- `sprint-5-polish`: Sprint 5 development (optional)
 - `hotfix/*`: Quick fixes for broken collection
+
+Each sprint branch is created from `main` and merged back when sprint deliverables are complete.
 
 ### Commit Standards
 - Descriptive messages
@@ -109,10 +125,24 @@ Collect temperature readings from home IoT sensors (Philips Hue and Google Nest)
 HomeTemperatureMonitoring/
 ├── docs/
 │   ├── project-constitution.md (this file)
-│   ├── tech-stack.md
-│   └── sprints/
-│       └── sprint-001-*.md
-├── src/
+│   └── tech-stack.md
+├── sprints/
+│   ├── sprint-0-foundation/
+│   │   ├── specification.md
+│   │   └── plan.md
+│   ├── sprint-1-hue/
+│   │   ├── specification.md
+│   │   └── plan.md
+│   ├── sprint-2-nest/
+│   │   ├── specification.md
+│   │   └── plan.md
+│   ├── sprint-3-automation/
+│   │   ├── specification.md
+│   │   └── plan.md
+│   └── sprint-4-quality/
+│       ├── specification.md
+│       └── plan.md
+├── source/
 │   ├── collectors/
 │   │   ├── hue_collector.py
 │   │   └── nest_collector.py
@@ -132,6 +162,12 @@ HomeTemperatureMonitoring/
 ├── requirements.txt
 └── README.md
 ```
+
+### Sprint Documentation Structure
+
+Each sprint folder contains:
+- **specification.md**: Detailed requirements, acceptance criteria, and technical design
+- **plan.md**: Task breakdown, time estimates, dependencies, and progress tracking
 
 ## Project Sprints
 
