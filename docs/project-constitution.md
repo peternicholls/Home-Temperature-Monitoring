@@ -10,6 +10,8 @@
 
 Collect temperature readings from home IoT sensors (Philips Hue and Google Nest) and record them in a suitable format for future statistical analysis.
 
+**Primary Goal**: Analyze heat retention and dissipation patterns to demonstrate correlation between external conditions (temperature, weather) and indoor heating efficiency. This data will provide objective evidence to the landlord that insulation and energy efficiency improvements are needed.
+
 ### Key Principles
 
 1. **Quick and Dirty**: Prioritize working solutions over perfect architecture
@@ -22,7 +24,8 @@ Collect temperature readings from home IoT sensors (Philips Hue and Google Nest)
 ### In Scope
 - ✅ Collecting temperature readings from Philips Hue sensors
 - ✅ Collecting temperature readings from Google Nest devices
-- ✅ Storing data in appropriate format (CSV, JSON, database TBD)
+- ✅ Collecting outside temperature from aggregate weather API services
+- ✅ Storing data in SQLite database for efficient querying and analysis
 - ✅ Timestamping and metadata for each reading
 - ✅ Basic error handling and retry logic
 - ✅ Scheduled/automated collection
@@ -39,33 +42,60 @@ Collect temperature readings from home IoT sensors (Philips Hue and Google Nest)
 | Source | Device Type | Priority | API/Protocol |
 |--------|-------------|----------|--------------|
 | **Philips Hue** | Motion sensors (temperature capability) | High | Hue Bridge API (local/cloud) |
-| **Google Nest** | Thermostats | High | Google Nest API / SDM API |
-
+| **Google Nest** | Thermostats | High | Google Nest API / SDM API || **Weather API** | Outside temperature (aggregate service) | Medium | Weather API service (e.g., OpenWeatherMap, WeatherAPI) |
 ## Data Requirements
 
 ### Minimum Data Points Per Reading
 - **Timestamp**: ISO 8601 format with timezone
-- **Source**: Device identifier (unique)
-- **Temperature**: Celsius (standardized)
-- **Location**: Room/zone identifier
-- **Device Type**: Hue sensor vs Nest thermostat
+- **Device ID**: Composite format `source_type:device_id` (e.g., `hue:sensor_abc123`, `nest:thermostat_xyz789`, `weather:outside`)
+- **Temperature**: Celsius (standardized, metric only)
+- **Location**: Room/zone identifier (or "outside" for weather data)
+- **Device Type**: Hue sensor, Nest thermostat, or weather API
+
+### Data Quality Validation
+- **Indoor temperature range**: 0°C to 40°C (readings outside this range flagged as anomalous)
+- **Outside temperature range**: -40°C to 50°C (weather data has wider acceptable range)
+- Duplicate timestamp detection per device
+- Required field presence validation
+
+### Weather Conditions Index (Standardized)
+For outside temperature readings, record weather conditions using consistent categorical values:
+
+**Primary Conditions** (mutually exclusive for sky state):
+- `sunny` - Clear skies, minimal cloud cover
+- `cloudy` - Overcast or significant cloud cover
+
+**Precipitation** (can combine with primary):
+- `raining` - Rain or drizzle
+- `snowing` - Snow or sleet
+
+**Wind** (can combine with any):
+- `windy` - Significant wind (threshold TBD by weather API)
+
+**Combination Format**: Pipe-separated (e.g., `cloudy|raining`, `sunny|windy`, `cloudy|snowing|windy`)
+
+**Day/Night Indicator**: Boolean or categorical (`day`, `night`) based on local sunrise/sunset times
 
 ### Optional Metadata
 - Humidity (if available)
 - Battery level (for sensors)
 - Signal strength/connectivity status
+- Thermostat mode (heating/cooling/off/away) - critical for cycle analysis
+- Thermostat state (actively heating/cooling vs idle)
+- **Day/Night indicator** (for outside readings) - based on sunrise/sunset times
+- **Weather conditions** (for outside readings) - standardized index values
 - Raw API response (for debugging)
 
 ## Technical Constraints
 
 ### Development Approach
 - Use tools from available tech stack (Python preferred for rapid development)
-- File-based storage acceptable initially (SQLite/CSV)
-- Can upgrade to proper database if needed
+- SQLite database for structured storage and efficient time-series queries
 - Local execution on Mac Studio (no cloud deployment required)
 
 ### Performance Requirements
-- Collection frequency: Every 5-15 minutes (TBD based on API limits)
+- Collection frequency: Every 5 minutes (288 readings/day per sensor) to accurately track heating/cooling cycles and occupancy mode transitions
+- Flexible fallback to 10-15 minutes if API rate limits require adjustment
 - Data retention: Indefinite (storage not a constraint)
 - API rate limits must be respected
 - Graceful degradation if devices offline
@@ -310,7 +340,7 @@ Each sprint folder contains:
    - Document manual trigger method
 
 3. **Error Handling & Resilience**
-   - Implement retry logic for API failures
+   - Implement retry logic for API failures: 3 attempts with exponential backoff (1s, 2s, 4s)
    - Exponential backoff for rate limits
    - Continue collection if one source fails
    - Prevent duplicate readings
@@ -392,6 +422,17 @@ Each sprint folder contains:
 - Can pause after Sprint 3 if automation is working well
 - Can extend any sprint if complexity discovered
 
+## Clarifications
+
+### Session 2025-11-18
+
+- Q: What storage format should be used for temperature readings (CSV, JSON, SQLite, or hybrid)? → A: B (SQLite database)
+- Q: What should the data collection frequency be (5, 10, or 15 minutes)? → A: 5 minutes preferred for tracking heating/cooling cycles and occupancy transitions; flexible if API limits require adjustment
+- Q: What temperature range should be considered valid for indoor readings (validation bounds)? → A: B (0°C to 40°C) - realistic indoor extremes for data quality validation
+- Q: What retry policy should be used for failed API calls (number of retries and backoff strategy)? → A: B (3 retries with exponential backoff)
+- Q: What format should device identifiers use to ensure uniqueness across sources? → A: B (Composite: source_type:device_id, e.g., `hue:sensor_abc123`, `nest:thermostat_xyz789`, `weather:outside`)
+- Q: Should outside temperature collection include additional weather context (day/night, conditions)? \u2192 A: Yes - record day/night indicator and standardized weather conditions (sunny, cloudy, raining, snowing, windy, and combinations) to analyze correlation with indoor heat retention/dissipation patterns
+
 ## Success Criteria
 
 The project is successful when:
@@ -426,6 +467,8 @@ The project is successful when:
 ### Reliability
 - Acceptable to miss occasional readings
 - Must not crash on API failures
+- Retry policy: 3 attempts with exponential backoff (e.g., 1s, 2s, 4s delays)
+- After retry exhaustion, log failure and continue to next scheduled collection
 - Log errors for debugging
 
 ### Maintainability
