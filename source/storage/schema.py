@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS readings (
     temperature_celsius REAL NOT NULL,
     location TEXT NOT NULL,
     device_type TEXT NOT NULL CHECK(device_type IN ('hue_sensor', 'nest_thermostat', 'weather_api')),
+    is_anomalous BOOLEAN DEFAULT 0,
     humidity_percent REAL CHECK(humidity_percent IS NULL OR (humidity_percent >= 0 AND humidity_percent <= 100)),
     battery_level INTEGER CHECK(battery_level IS NULL OR (battery_level >= 0 AND battery_level <= 100)),
     signal_strength INTEGER CHECK(signal_strength IS NULL OR (signal_strength >= 0 AND signal_strength <= 100)),
@@ -24,4 +25,5 @@ CREATE INDEX IF NOT EXISTS idx_readings_device_id ON readings(device_id);
 CREATE INDEX IF NOT EXISTS idx_readings_device_timestamp ON readings(device_id, timestamp);
 CREATE INDEX IF NOT EXISTS idx_readings_location ON readings(location);
 CREATE INDEX IF NOT EXISTS idx_readings_device_type ON readings(device_type);
+CREATE INDEX IF NOT EXISTS idx_readings_anomalous ON readings(is_anomalous) WHERE is_anomalous = 1;
 """

@@ -1,0 +1,108 @@
+{
+    "_comment": "Sample Philips Hue API responses for temperature sensors",
+    "_created": "2025-11-18",
+    "_spec": "002-hue-integration",
+    "_note": "Demonstrates sensor states: online with good battery, online with low battery, offline",
+    "sensor_list_response": {
+        "1": {
+            "state": {
+                "temperature": 2134,
+                "lastupdated": "2025-11-18T14:30:00"
+            },
+            "config": {
+                "on": true,
+                "battery": 87,
+                "reachable": true
+            },
+            "name": "Hue temperature sensor 1",
+            "type": "ZLLTemperature",
+            "modelid": "SML001",
+            "manufacturername": "Philips",
+            "swversion": "6.1.1.27575",
+            "uniqueid": "00:17:88:01:02:03:04:05-02-0402"
+        },
+        "2": {
+            "state": {
+                "temperature": 1987,
+                "lastupdated": "2025-11-18T14:29:45"
+            },
+            "config": {
+                "on": true,
+                "battery": 62,
+                "reachable": true
+            },
+            "name": "Bedroom motion sensor",
+            "type": "ZLLTemperature",
+            "modelid": "SML001",
+            "manufacturername": "Philips",
+            "swversion": "6.1.1.27575",
+            "uniqueid": "00:17:88:01:02:03:04:06-02-0402"
+        },
+        "3": {
+            "state": {
+                "temperature": 2245,
+                "lastupdated": "2025-11-18T14:30:15"
+            },
+            "config": {
+                "on": true,
+                "battery": 18,
+                "reachable": false
+            },
+            "name": "Kitchen sensor",
+            "type": "ZLLTemperature",
+            "modelid": "SML001",
+            "manufacturername": "Philips",
+            "swversion": "6.1.1.27575",
+            "uniqueid": "00:17:88:01:02:03:04:07-02-0402"
+        }
+    },
+    "data_mapping": {
+        "temperature_conversion": "Hue reports temperature in 0.01°C units. Example: 2134 = 21.34°C (divide by 100)",
+        "device_id_format": "hue:UNIQUEID where UNIQUEID is from the sensor's uniqueid field (e.g., 'hue:00:17:88:01:02:03:04:05-02-0402')",
+        "location_mapping": "Priority 1: sensor_locations config mapping by uniqueid. Priority 2: sensor 'name' field. Priority 3: 'Unknown'",
+        "device_type": "Always 'hue_sensor' for Hue temperature sensors",
+        "battery_level": "From config.battery field (0-100 integer)",
+        "signal_strength": "Derived from config.reachable: 1 if true, 0 if false"
+    },
+    "field_requirements": {
+        "required_for_collection": [
+            "state.temperature",
+            "state.lastupdated",
+            "uniqueid",
+            "name",
+            "type"
+        ],
+        "optional_metadata": [
+            "config.battery",
+            "config.reachable",
+            "modelid",
+            "manufacturername",
+            "swversion"
+        ]
+    },
+    "expected_conversions": {
+        "sensor_1": {
+            "api_temperature": 2134,
+            "converted_celsius": 21.34,
+            "device_id": "hue:00:17:88:01:02:03:04:05-02-0402",
+            "location": "Living Room",
+            "is_anomalous": false
+        },
+        "sensor_2": {
+            "api_temperature": 1987,
+            "converted_celsius": 19.87,
+            "device_id": "hue:00:17:88:01:02:03:04:06-02-0402",
+            "location": "Bedroom",
+            "is_anomalous": false
+        },
+        "sensor_3_offline": {
+            "api_temperature": 2245,
+            "converted_celsius": 22.45,
+            "device_id": "hue:00:17:88:01:02:03:04:07-02-0402",
+            "location": "Kitchen",
+            "is_anomalous": false,
+            "reachable": false,
+            "note": "Sensor offline - skip in collection cycle"
+        }
+    }
+}

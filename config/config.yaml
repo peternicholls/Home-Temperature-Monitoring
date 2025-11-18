@@ -10,8 +10,10 @@ storage:
 # Logging settings
 logging:
   level: "INFO"
-  enable_file_logging: false
-  log_file_path: "logs/collector.log"
+  enable_file_logging: true
+  log_file_path: "logs/hue_collection.log"
+  max_bytes: 10485760 # 10 MB
+  backup_count: 5
 # Validation settings
 validation:
   indoor_temp_min: 0
@@ -22,8 +24,23 @@ validation:
 # Collector-specific settings
 collectors:
   hue:
-    enabled: false
+    enabled: true
     timeout_seconds: 10
+    bridge_ip: null # Auto-discover if null
+    auto_discover: true
+    collection_interval: 300
+    retry_attempts: 3
+    retry_backoff_base: 2
+    sensor_locations:
+      # Map sensor unique_id to location names
+      "00:17:88:01:02:02:b5:21-02-0402": "Utility" # Sensor 1: 19.58°C
+      "00:17:88:01:03:28:0f:d0-02-0402": "Hall" # Sensor 2: 18.56°C
+    fallback_to_name: true
+    temperature_min: 0.0
+    temperature_max: 40.0
+    collect_battery_level: true
+    collect_signal_strength: true
+    collect_raw_response: false
   nest:
     enabled: false
     timeout_seconds: 10
