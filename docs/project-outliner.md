@@ -422,6 +422,15 @@ Each sprint folder contains:
 - Can pause after Sprint 3 if automation is working well
 - Can extend any sprint if complexity discovered
 
+# Sprint Planning Structure
+
+- Sprint 0: Project Foundation
+  - Setup, configuration, schema, documentation
+- Sprint 1: Philips Hue integration
+- Sprint 2: Nest integration
+- Sprint 3: Weather API integration
+- Sprint 4+: Data analysis, reporting, enhancements
+
 ## Clarifications
 
 ### Session 2025-11-18

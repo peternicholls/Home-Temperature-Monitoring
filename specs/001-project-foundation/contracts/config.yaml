@@ -1,0 +1,70 @@
+# Configuration Contract: config.yaml
+# Sprint 0: Project Foundation
+# Purpose: Define application settings schema
+
+# Collection settings
+collection:
+  # How often to collect temperature readings (seconds)
+  # Default: 300 (5 minutes)
+  # Min: 60 (1 minute)
+  interval_seconds: 300
+
+  # Number of retry attempts for failed API calls
+  # Default: 3
+  # Range: 1-10
+  retry_attempts: 3
+
+  # Base seconds for exponential backoff (1s, 2s, 4s, ...)
+  # Default: 1.0
+  retry_backoff_base: 1.0
+
+# Storage settings
+storage:
+  # Path to SQLite database file
+  # Default: data/readings.db
+  database_path: "data/readings.db"
+
+  # Enable database connection pooling (future)
+  # Default: false
+  enable_pooling: false
+
+# Logging settings
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  # Default: INFO
+  level: "INFO"
+
+  # Log to file (future feature)
+  # Default: false
+  enable_file_logging: false
+
+  # Log file path (if file logging enabled)
+  # Default: logs/collector.log
+  log_file_path: "logs/collector.log"
+
+# Validation settings
+validation:
+  # Temperature range for indoor sensors (Celsius)
+  indoor_temp_min: 0
+  indoor_temp_max: 40
+
+  # Temperature range for outdoor sensors (Celsius)
+  outdoor_temp_min: -40
+  outdoor_temp_max: 50
+
+  # Warn but don't reject out-of-range readings
+  allow_out_of_range: true
+
+# Future: Collector-specific settings
+collectors:
+  hue:
+    enabled: false # Enable in Sprint 1
+    timeout_seconds: 10
+
+  nest:
+    enabled: false # Enable in Sprint 2
+    timeout_seconds: 10
+
+  weather:
+    enabled: false # Enable in Sprint 2 or 3
+    timeout_seconds: 10

@@ -1,0 +1,32 @@
+# Collection settings
+collection:
+  interval_seconds: 300
+  retry_attempts: 3
+  retry_backoff_base: 1.0
+# Storage settings
+storage:
+  database_path: "data/readings.db"
+  enable_pooling: false
+# Logging settings
+logging:
+  level: "INFO"
+  enable_file_logging: false
+  log_file_path: "logs/collector.log"
+# Validation settings
+validation:
+  indoor_temp_min: 0
+  indoor_temp_max: 40
+  outdoor_temp_min: -40
+  outdoor_temp_max: 50
+  allow_out_of_range: true
+# Collector-specific settings
+collectors:
+  hue:
+    enabled: false
+    timeout_seconds: 10
+  nest:
+    enabled: false
+    timeout_seconds: 10
+  weather:
+    enabled: false
+    timeout_seconds: 10
