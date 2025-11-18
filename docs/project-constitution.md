@@ -72,6 +72,11 @@ Collect temperature readings from home IoT sensors (Philips Hue and Google Nest)
 
 ## Sprint Structure
 
+### Sprint Numbering
+- Sprints are numbered **S000**, **S001**, **S002**, etc.
+- Tasks within sprints are numbered **T001**, **T002**, **T003**, etc. (sequential across all sprints)
+- Each sprint has a branch named `sprint-N-name` (e.g., `sprint-0-foundation`)
+
 ### Sprint Definition
 - **Duration**: Flexible (1-2 weeks typical)
 - **Goal**: Deliver one complete feature
@@ -81,11 +86,18 @@ Collect temperature readings from home IoT sensors (Philips Hue and Google Nest)
 - **Documentation**: `specification.md` and `plan.md` in `sprints/sprint-N-name/`
 
 ### Sprint Workflow
-1. **Planning**: Create sprint branch, write specification.md and plan.md
-2. **Development**: Implement stories/tasks on sprint branch
-3. **Validation**: Verify deliverables meet acceptance criteria
-4. **Merge**: Merge sprint branch to `main` when complete
-5. **Retrospective**: Update plan.md with outcomes and learnings
+1. **Planning**: Create sprint branch, write specification.md and plan.md using templates
+2. **Task Compilation**: Create detailed task list from stories (tasks may optionally have individual task docs)
+3. **Development**: Implement tasks on sprint branch
+4. **Validation**: Verify deliverables meet acceptance criteria
+5. **Merge**: Merge sprint branch to `main` when complete
+6. **Retrospective**: Update plan.md with outcomes and learnings
+
+### Templates
+All planning documents use templates from `docs/templates/`:
+- `sprint-specification.md` - Sprint requirements and design
+- `sprint-plan.md` - Task list and progress tracking
+- `task.md` - Individual task documentation (optional, for complex tasks)
 
 ### Definition of Done (per Sprint)
 - [ ] Feature implemented and tested
@@ -125,21 +137,28 @@ Each sprint branch is created from `main` and merged back when sprint deliverabl
 HomeTemperatureMonitoring/
 ├── docs/
 │   ├── project-constitution.md (this file)
-│   └── tech-stack.md
+│   ├── tech-stack.md
+│   └── templates/
+│       ├── sprint-specification.md
+│       ├── sprint-plan.md
+│       └── task.md
 ├── sprints/
-│   ├── sprint-0-foundation/
+│   ├── sprint-0-foundation/  (S000)
+│   │   ├── specification.md
+│   │   ├── plan.md
+│   │   └── tasks/ (optional)
+│   │       ├── T001.md
+│   │       └── T002.md
+│   ├── sprint-1-hue/  (S001)
 │   │   ├── specification.md
 │   │   └── plan.md
-│   ├── sprint-1-hue/
+│   ├── sprint-2-nest/  (S002)
 │   │   ├── specification.md
 │   │   └── plan.md
-│   ├── sprint-2-nest/
+│   ├── sprint-3-automation/  (S003)
 │   │   ├── specification.md
 │   │   └── plan.md
-│   ├── sprint-3-automation/
-│   │   ├── specification.md
-│   │   └── plan.md
-│   └── sprint-4-quality/
+│   └── sprint-4-quality/  (S004)
 │       ├── specification.md
 │       └── plan.md
 ├── source/
@@ -166,8 +185,9 @@ HomeTemperatureMonitoring/
 ### Sprint Documentation Structure
 
 Each sprint folder contains:
-- **specification.md**: Detailed requirements, acceptance criteria, and technical design
-- **plan.md**: Task breakdown, time estimates, dependencies, and progress tracking
+- **specification.md**: Detailed requirements, acceptance criteria, and technical design (from template)
+- **plan.md**: Task breakdown, time estimates, dependencies, and progress tracking (from template)
+- **tasks/** (optional): Individual task documentation for complex tasks (from template)
 
 ## Project Sprints
 
