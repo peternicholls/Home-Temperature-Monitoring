@@ -1,0 +1,65 @@
+# Hue Configuration Schema
+# Feature: 002-hue-integration
+# Date: 2025-11-18
+# Add these entries to your main config/config.yaml file
+
+hue:
+  # Bridge connection settings
+  bridge_ip:
+    null # Optional: Manual IP address (e.g., "192.168.1.100")
+    # If null, automatic mDNS discovery is used
+
+  auto_discover:
+    true # Enable/disable automatic Bridge discovery
+    # Set to false if using manual bridge_ip
+
+  # Collection settings
+  collection_interval:
+    300 # Seconds between collections (300 = 5 minutes)
+    # Aligned with constitution requirement
+
+  retry_attempts:
+    3 # Number of retry attempts on API failure
+    # Per constitution: 3 attempts with exponential backoff
+
+  retry_backoff_base:
+    2 # Exponential backoff base (seconds)
+    # Results in: 1s, 2s, 4s delays
+
+  # Sensor location mappings (optional)
+  # Maps sensor unique IDs to human-readable room names
+  # If not specified, uses sensor name from Hue app
+  sensor_locations:
+    "00:17:88:01:02:03:04:05-02-0402": "Living Room"
+    "00:17:88:01:02:03:04:06-02-0402": "Bedroom"
+    "00:17:88:01:02:03:04:07-02-0402": "Kitchen"
+
+  fallback_to_name: true # Use sensor.name if unique_id not in mappings
+
+  # Validation settings
+  temperature_min: 0.0 # Minimum valid indoor temperature (°C)
+  temperature_max:
+    40.0 # Maximum valid indoor temperature (°C)
+    # Readings outside range flagged as anomalous
+
+  # Optional metadata collection
+  collect_battery_level: true # Include battery level in readings
+  collect_signal_strength: true # Include reachability status
+  collect_raw_response:
+    false # Store full API response (debugging only)
+    # Warning: Increases database size significantly
+
+# Database settings (shared with other collectors)
+database:
+  path: "data/temperature.db" # SQLite database file path
+  enable_wal_mode: true # Write-Ahead Logging for better concurrency
+  journal_mode: "WAL" # Journal mode: DELETE, WAL, or MEMORY
+  synchronous: "NORMAL" # Synchronous mode: OFF, NORMAL, or FULL
+
+# Logging settings (shared)
+logging:
+  level: "INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file: "logs/hue_collection.log"
+  max_bytes: 10485760 # 10 MB
+  backup_count: 5 # Keep 5 rotated log files
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
