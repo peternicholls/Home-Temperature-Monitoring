@@ -27,11 +27,12 @@ Single project structure: `source/` (code), `config/` (configuration), `data/` (
 
 **Purpose**: Project initialization and basic structure for Hue integration
 
-- [ ] T001 Create `source/collectors/` directory for Hue integration modules
-- [ ] T002 Add `phue==1.1` dependency to `requirements.txt`
-- [ ] T003 [P] Copy `specs/002-hue-integration/contracts/secrets-hue.yaml.example` to `config/secrets.yaml` (if not exists)
-- [ ] T004 [P] Append Hue configuration from `specs/002-hue-integration/contracts/config-hue.yaml` to `config/config.yaml`
-- [ ] T005 [P] Create `logs/hue_collection.log` file (empty, for collection logs)
+- [X] T001 Create `source/collectors/` directory for Hue integration modules
+- [X] T002 Add `phue==1.1` dependency to `requirements.txt`
+- [X] T003 [P] Copy `specs/002-hue-integration/contracts/secrets-hue.yaml.example` to `config/secrets.yaml` (if not exists)
+- [X] T004 [P] Append Hue configuration from `specs/002-hue-integration/contracts/config-hue.yaml` to `config/config.yaml`
+- [X] T005 [P] Create `logs/hue_collection.log` file (empty, for collection logs)
+
 
 ---
 
@@ -41,10 +42,10 @@ Single project structure: `source/` (code), `config/` (configuration), `data/` (
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Execute database schema SQL from `specs/002-hue-integration/contracts/database-schema.sql` to create `temperature_readings` table (note: auto-created by code, see schema header)
-- [ ] T007 [P] Add Hue config validation rules to `source/config/validator.py` for bridge_ip, auto_discover, collection_interval fields
-- [ ] T008 [P] Add Hue secrets validation to `source/config/validator.py` for api_key and bridge_id fields
-- [ ] T009 [P] Update `source/storage/manager.py` to include insert method for temperature readings with UNIQUE constraint handling
+- [X] T006 Execute database schema SQL from `specs/002-hue-integration/contracts/database-schema.sql` to create `temperature_readings` table (note: auto-created by code, see schema header)
+- [X] T007 [P] Add Hue config validation rules to `source/config/validator.py` for bridge_ip, auto_discover, collection_interval fields
+- [X] T008 [P] Add Hue secrets validation to `source/config/validator.py` for api_key and bridge_id fields
+- [X] T009 [P] Update `source/storage/manager.py` to include insert method for temperature readings with UNIQUE constraint handling
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -58,14 +59,14 @@ Single project structure: `source/` (code), `config/` (configuration), `data/` (
 
 ### Implementation for User Story 1
 
-- [ ] T010 [P] [US1] Create `source/collectors/__init__.py` with module documentation
-- [ ] T011 [US1] Implement Bridge discovery logic using `phue.discover_nupnp()` in `source/collectors/hue_auth.py` (handles DHCP IP changes)
-- [ ] T012 [US1] Implement manual IP fallback from config in `source/collectors/hue_auth.py` (edge case: mDNS blocked networks)
-- [ ] T013 [US1] Implement button press authentication flow using `phue.Bridge.connect()` in `source/collectors/hue_auth.py`
-- [ ] T014 [US1] Add function to save API key and Bridge ID to `config/secrets.yaml` in `source/collectors/hue_auth.py`
-- [ ] T015 [US1] Add CLI entry point with argparse for authentication command in `source/collectors/hue_auth.py`
-- [ ] T016 [US1] Add logging for discovery attempts, button press prompt, and success/failure in `source/collectors/hue_auth.py`
-- [ ] T017 [US1] Add error handling for Bridge not found, button not pressed, and authentication failures in `source/collectors/hue_auth.py`
+- [X] T010 [P] [US1] Create `source/collectors/__init__.py` with module documentation
+- [X] T011 [US1] Implement Bridge discovery logic using `phue.discover_nupnp()` in `source/collectors/hue_auth.py` (handles DHCP IP changes)
+- [X] T012 [US1] Implement manual IP fallback from config in `source/collectors/hue_auth.py` (edge case: mDNS blocked networks)
+- [X] T013 [US1] Implement button press authentication flow using `phue.Bridge.connect()` in `source/collectors/hue_auth.py`
+- [X] T014 [US1] Add function to save API key and Bridge ID to `config/secrets.yaml` in `source/collectors/hue_auth.py`
+- [X] T015 [US1] Add CLI entry point with argparse for authentication command in `source/collectors/hue_auth.py`
+- [X] T016 [US1] Add logging for discovery attempts, button press prompt, and success/failure in `source/collectors/hue_auth.py`
+- [X] T017 [US1] Add error handling for Bridge not found, button not pressed, and authentication failures in `source/collectors/hue_auth.py`
 
 **Checkpoint**: Authentication script can discover Bridge, authenticate via button press, and store credentials securely
 
@@ -79,13 +80,13 @@ Single project structure: `source/` (code), `config/` (configuration), `data/` (
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] Implement sensor discovery using `bridge.get_api()['sensors']` in `source/collectors/hue_collector.py`
-- [ ] T019 [US2] Filter sensors by type `ZLLTemperature` in `source/collectors/hue_collector.py`
-- [ ] T020 [P] [US2] Implement location mapping function using config `sensor_locations` in `source/collectors/hue_collector.py`
-- [ ] T021 [P] [US2] Add fallback to sensor name when unique_id not in config in `source/collectors/hue_collector.py`
-- [ ] T022 [US2] Extract sensor metadata (unique_id, name, model_id, battery, reachable) in `source/collectors/hue_collector.py`
-- [ ] T023 [US2] Add CLI option `--discover` to list all sensors with metadata in `source/collectors/hue_collector.py`
-- [ ] T024 [US2] Add logging for sensor discovery results and offline sensors in `source/collectors/hue_collector.py`
+- [X] T018 [US2] Implement sensor discovery using `bridge.get_api()['sensors']` in `source/collectors/hue_collector.py`
+- [X] T019 [US2] Filter sensors by type `ZLLTemperature` in `source/collectors/hue_collector.py`
+- [X] T020 [P] [US2] Implement location mapping function using config `sensor_locations` in `source/collectors/hue_collector.py`
+- [X] T021 [P] [US2] Add fallback to sensor name when unique_id not in config in `source/collectors/hue_collector.py`
+- [X] T022 [US2] Extract sensor metadata (unique_id, name, model_id, battery, reachable) in `source/collectors/hue_collector.py`
+- [X] T023 [US2] Add CLI option `--discover` to list all sensors with metadata in `source/collectors/hue_collector.py`
+- [X] T024 [US2] Add logging for sensor discovery results and offline sensors in `source/collectors/hue_collector.py`
 
 **Checkpoint**: Sensor discovery lists all temperature-capable sensors with correct location mapping
 
@@ -99,18 +100,18 @@ Single project structure: `source/` (code), `config/` (configuration), `data/` (
 
 ### Implementation for User Story 3
 
-- [ ] T025 [US3] Implement collection cycle function to retrieve all sensors in `source/collectors/hue_collector.py`
-- [ ] T026 [P] [US3] Convert temperature from 0.01°C units to Celsius (divide by 100.0) in `source/collectors/hue_collector.py`
-- [ ] T027 [P] [US3] Generate ISO 8601 timestamp with timezone using `datetime.now(timezone.utc).isoformat()` in `source/collectors/hue_collector.py`
-- [ ] T028 [P] [US3] Format device_id as `hue:{sensor_unique_id}` in `source/collectors/hue_collector.py`
-- [ ] T029 [P] [US3] Set device_type to `hue_sensor` for all readings in `source/collectors/hue_collector.py`
-- [ ] T030 [P] [US3] Validate temperature range 0-40°C and flag anomalies in `source/collectors/hue_collector.py` (edge case: out-of-range readings)
-- [ ] T031 [P] [US3] Extract battery_level from sensor config if available in `source/collectors/hue_collector.py` (edge case: low battery detection)
-- [ ] T032 [P] [US3] Map signal_strength from reachable boolean (1=reachable, 0=unreachable) in `source/collectors/hue_collector.py`
-- [ ] T033 [US3] Implement retry logic with exponential backoff (1s, 2s, 4s) for collection failures in `source/collectors/hue_collector.py` (edge case: malformed API data)
-- [ ] T034 [US3] Handle offline sensors gracefully (skip and continue with others) in `source/collectors/hue_collector.py` (edge case: low battery/offline sensors)
-- [ ] T035 [US3] Add CLI options `--collect-once` and `--continuous` in `source/collectors/hue_collector.py`
-- [ ] T036 [US3] Add logging for collection start, per-sensor results, errors, and cycle completion in `source/collectors/hue_collector.py`
+- [X] T025 [US3] Implement collection cycle function to retrieve all sensors in `source/collectors/hue_collector.py`
+- [X] T026 [P] [US3] Convert temperature from 0.01°C units to Celsius (divide by 100.0) in `source/collectors/hue_collector.py`
+- [X] T027 [P] [US3] Generate ISO 8601 timestamp with timezone using `datetime.now(timezone.utc).isoformat()` in `source/collectors/hue_collector.py`
+- [X] T028 [P] [US3] Format device_id as `hue:{sensor_unique_id}` in `source/collectors/hue_collector.py`
+- [X] T029 [P] [US3] Set device_type to `hue_sensor` for all readings in `source/collectors/hue_collector.py`
+- [X] T030 [P] [US3] Validate temperature range 0-40°C and flag anomalies in `source/collectors/hue_collector.py` (edge case: out-of-range readings)
+- [X] T031 [P] [US3] Extract battery_level from sensor config if available in `source/collectors/hue_collector.py` (edge case: low battery detection)
+- [X] T032 [P] [US3] Map signal_strength from reachable boolean (1=reachable, 0=unreachable) in `source/collectors/hue_collector.py`
+- [X] T033 [US3] Implement retry logic with exponential backoff (1s, 2s, 4s) for collection failures in `source/collectors/hue_collector.py` (edge case: malformed API data)
+- [X] T034 [US3] Handle offline sensors gracefully (skip and continue with others) in `source/collectors/hue_collector.py` (edge case: low battery/offline sensors)
+- [X] T035 [US3] Add CLI options `--collect-once` and `--continuous` in `source/collectors/hue_collector.py`
+- [X] T036 [US3] Add logging for collection start, per-sensor results, errors, and cycle completion in `source/collectors/hue_collector.py`
 
 **Checkpoint**: Collection script successfully retrieves and formats temperature readings with all required and optional fields
 
@@ -124,14 +125,14 @@ Single project structure: `source/` (code), `config/` (configuration), `data/` (
 
 ### Implementation for User Story 4
 
-- [ ] T037 [US4] Add method `insert_temperature_reading()` to `source/storage/manager.py` for inserting readings
-- [ ] T038 [P] [US4] Handle UNIQUE constraint violations for duplicate (device_id, timestamp) in `source/storage/manager.py` (prevents duplicate readings)
-- [ ] T039 [P] [US4] Handle database locked errors with retry logic in `source/storage/manager.py` (edge case: concurrent access)
-- [ ] T040 [P] [US4] Store all required fields (timestamp, device_id, temperature_celsius, location, device_type) in `source/storage/manager.py`
-- [ ] T041 [P] [US4] Store optional fields (is_anomalous, battery_level, signal_strength, raw_api_response) in `source/storage/manager.py`
-- [ ] T042 [US4] Call database insert from collection cycle in `source/collectors/hue_collector.py`
-- [ ] T043 [US4] Add logging for successful inserts, duplicates, and database errors in `source/storage/manager.py`
-- [ ] T044 [US4] Add auto-creation of database schema if table doesn't exist in `source/storage/manager.py`
+- [X] T037 [US4] Add method `insert_temperature_reading()` to `source/storage/manager.py` for inserting readings
+- [X] T038 [P] [US4] Handle UNIQUE constraint violations for duplicate (device_id, timestamp) in `source/storage/manager.py` (prevents duplicate readings)
+- [X] T039 [P] [US4] Handle database locked errors with retry logic in `source/storage/manager.py` (edge case: concurrent access)
+- [X] T040 [P] [US4] Store all required fields (timestamp, device_id, temperature_celsius, location, device_type) in `source/storage/manager.py`
+- [X] T041 [P] [US4] Store optional fields (is_anomalous, battery_level, signal_strength, raw_api_response) in `source/storage/manager.py`
+- [X] T042 [US4] Call database insert from collection cycle in `source/collectors/hue_collector.py`
+- [X] T043 [US4] Add logging for successful inserts, duplicates, and database errors in `source/storage/manager.py`
+- [X] T044 [US4] Add auto-creation of database schema if table doesn't exist in `source/storage/manager.py`
 
 **Checkpoint**: Temperature readings are successfully stored in database with proper constraints and error handling
 
@@ -141,12 +142,12 @@ Single project structure: `source/` (code), `config/` (configuration), `data/` (
 
 **Purpose**: Improvements that affect multiple user stories and final validation
 
-- [ ] T045 [P] Update `specs/002-hue-integration/quickstart.md` with actual CLI commands and expected outputs
-- [ ] T046 [P] Add troubleshooting section to `specs/002-hue-integration/quickstart.md` for common errors
-- [ ] T047 [P] Add sample database queries to `specs/002-hue-integration/contracts/database-schema.sql` for validation
-- [ ] T048 Code review and refactoring for consistency across collector modules
-- [ ] T049 Run through quickstart.md validation steps to verify end-to-end functionality
-- [ ] T050 [P] Update main `README.md` with Hue integration status and links
+- [X] T045 [P] Update `specs/002-hue-integration/quickstart.md` with actual CLI commands and expected outputs
+- [X] T046 [P] Add troubleshooting section to `specs/002-hue-integration/quickstart.md` for common errors
+- [X] T047 [P] Add sample database queries to `specs/002-hue-integration/contracts/database-schema.sql` for validation
+- [X] T048 Code review and refactoring for consistency across collector modules
+- [X] T049 Run through quickstart.md validation steps to verify end-to-end functionality
+- [X] T050 [P] Update main `README.md` with Hue integration status and links
 
 ---
 

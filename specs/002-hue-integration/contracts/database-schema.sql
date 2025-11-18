@@ -52,13 +52,13 @@ CREATE INDEX IF NOT EXISTS idx_anomalous ON temperature_readings(is_anomalous)
 WHERE is_anomalous = 1;
 -- Sample queries for validation
 -- Query 1: Get last 24 hours of readings for a specific sensor
--- SELECT timestamp, temperature_celsius, location, is_anomalous
+-- SELECT timestamp, temperature_celsius, location, is_anomalous, battery_level
 -- FROM temperature_readings
 -- WHERE device_id = 'hue:00:17:88:01:02:03:04:05-02-0402'
 --   AND timestamp >= datetime('now', '-1 day')
 -- ORDER BY timestamp DESC;
 -- Query 2: Get all readings in a time range across all Hue sensors
--- SELECT timestamp, device_id, location, temperature_celsius
+-- SELECT timestamp, device_id, location, temperature_celsius, battery_level
 -- FROM temperature_readings
 -- WHERE device_type = 'hue_sensor'
 --   AND timestamp BETWEEN '2025-11-18T00:00:00+00:00' AND '2025-11-18T23:59:59+00:00'
@@ -86,5 +86,29 @@ WHERE is_anomalous = 1;
 --        ROUND(COUNT(*) * 100.0 / 2016, 2) as success_rate_percent
 -- FROM temperature_readings
 -- WHERE timestamp >= datetime('now', '-7 days')
+--   AND device_type = 'hue_sensor'
 -- GROUP BY device_id
 -- ORDER BY success_rate_percent DESC;
+-- Query 6: Get average temperature by location (last 24 hours)
+-- SELECT location,
+--        COUNT(*) as reading_count,
+--        ROUND(AVG(temperature_celsius), 2) as avg_temp,
+--        ROUND(MIN(temperature_celsius), 2) as min_temp,
+--        ROUND(MAX(temperature_celsius), 2) as max_temp
+-- FROM temperature_readings
+-- WHERE device_type = 'hue_sensor'
+--   AND timestamp >= datetime('now', '-1 day')
+-- GROUP BY location
+-- ORDER BY location;
+-- Query 7: Check sensor battery levels (most recent reading per sensor)
+-- SELECT device_id, location, battery_level, timestamp
+-- FROM temperature_readings
+-- WHERE device_type = 'hue_sensor'
+--   AND battery_level IS NOT NULL
+--   AND (device_id, timestamp) IN (
+--     SELECT device_id, MAX(timestamp)
+--     FROM temperature_readings
+--     WHERE device_type = 'hue_sensor'
+--     GROUP BY device_id
+--   )
+-- ORDER BY battery_level ASC;

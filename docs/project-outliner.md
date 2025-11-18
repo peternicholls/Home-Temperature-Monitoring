@@ -273,7 +273,7 @@ Each sprint folder contains:
    - Handle sensor offline/unavailable scenarios
 
 4. **Data Storage**
-   - Implement CSV writer (or JSON if preferred)
+   - Implement sqlite database etc.
    - Write readings with proper format
    - Handle file rotation (daily/weekly files)
    - Verify data integrity

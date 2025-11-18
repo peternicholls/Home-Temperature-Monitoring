@@ -3,6 +3,7 @@
 Auto-generated from all feature plans. Last updated: 2025-11-18
 
 ## Active Technologies
+- SQLite database (as per constitution) (002-hue-integration)
 
 - Python 3.11+ + PyYAML (config), SQLite3 (stdlib, database), typing (stdlib, type hints) (001-project-foundation)
 
@@ -22,6 +23,7 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+: Follow standard conventions
 
 ## Recent Changes
+- 002-hue-integration: Added Python 3.11+
 
 - 001-project-foundation: Added Python 3.11+ + PyYAML (config), SQLite3 (stdlib, database), typing (stdlib, type hints)
 
