@@ -65,8 +65,7 @@ def setup_logging(config: dict = None):
     # Configure root logger
     logging.basicConfig(
         level=level,
-        handlers=handlers,
-        force=True  # Override any existing configuration
+        handlers=handlers
     )
     
     # Log configuration
@@ -74,3 +73,24 @@ def setup_logging(config: dict = None):
     logger.info(f"Logging configured: level={log_level}, file_logging={enable_file_logging}")
     if enable_file_logging:
         logger.info(f"Log file: {log_file_path} (max_bytes={max_bytes}, backup_count={backup_count})")
+
+
+# Usage example:
+if __name__ == '__main__':
+    config = {
+        'logging': {
+            'level': 'INFO',
+            'enable_file_logging': True,
+            'log_file_path': 'logs/hue_collection.log',
+            'max_bytes': 10485760,  # 10MB
+            'backup_count': 5,
+            'encoding': 'utf-8',
+        }
+    }
+    
+    setup_logging(config)
+    
+    logger = logging.getLogger(__name__)
+    logger.info("This is a test log entry")
+    logger.warning("This is a warning")
+    logger.error("This is an error")
