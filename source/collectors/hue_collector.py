@@ -36,10 +36,16 @@ except Exception:
 
 try:
     from phue import Bridge
-    import requests
 except ImportError:
     print("ERROR: Required package 'phue' not installed")
     print("Run: pip install phue")
+    sys.exit(1)
+
+try:
+    import requests
+except ImportError:
+    print("ERROR: Required package 'requests' not installed")
+    print("Run: pip install requests")
     sys.exit(1)
 
 # Setup logging
@@ -142,79 +148,18 @@ def get_sensor_location(sensor_data: dict, config: dict) -> str:
 
 def discover_sensors(bridge: Bridge, config: dict) -> List[Dict]:
     """
-    Discover all temperature-capable Hue sensors.
+    Discover temperature sensors from Hue Bridge.
     
     Args:
         bridge: Connected Bridge object
         config: Configuration dictionary
         
     Returns:
-        List of sensor dictionaries with metadata
+        List of sensor info dictionaries
     """
     logger.info("Discovering temperature sensors...")
     
     try:
-        # Optimized: Use sensors-only endpoint instead of full config
-        # This reduces payload size by 50%+ and speeds up collection
-        import sys
-        api_key = None
-        bridge_ip = None
-        
-        # Extract API key and IP from bridge object
-        if hasattr(bridge, 'username'):
-            api_key = bridge.username
-        if hasattr(bridge, 'ip'):
-            bridge_ip = bridge.ip
-        
-        if api_key and bridge_ip:
-            # Direct API call to sensors endpoint (optimized)
-            response = requests.get(f"http://{bridge_ip}/api/{api_key}/sensors", timeout=10)
-            response.raise_for_status()
-            all_sensors = response.json()
-            
-            # Log performance metrics
-            response_size = sys.getsizeof(response.text)
-            logger.info(f"API request metrics: sensors_only endpoint, {response_size} bytes")
-        else:
-            # Fallback to full config if optimization not possible
-            logger.debug("Using fallback full config API call")
-            api_data = bridge.get_api()
-            all_sensors = api_data.get('sensors', {})
-            
-    except Exception as e:
-        logger.warning(f"Optimized API call failed, falling back to full config: {e}")
-        # Fallback to original method
-        api_data = bridge.get_api()
-        all_sensors = api_data.get('sensors', {})
-    
-    temperature_sensors = []
-    
-    for sensor_id, sensor_data in all_sensors.items():
-        # Filter for temperature sensors only
-        if sensor_data.get('type') != 'ZLLTemperature':
-            continue
-        
-        sensor_info = {
-            'sensor_id': sensor_id,
-            'unique_id': sensor_data.get('uniqueid', ''),
-            'name': sensor_data.get('name', 'Unknown'),
-            'model_id': sensor_data.get('modelid', ''),
-            'manufacturer': sensor_data.get('manufacturername', ''),
-            'sensor_type': sensor_data.get('type', ''),
-            'location': get_sensor_location(sensor_data, config),
-            'is_reachable': sensor_data.get('config', {}).get('reachable', False),
-            'battery_level': sensor_data.get('config', {}).get('battery'),
-            'last_updated': sensor_data.get('state', {}).get('lastupdated'),
-        }
-        
-        temperature_sensors.append(sensor_info)
-        
-        status = "✓ Online" if sensor_info['is_reachable'] else "✗ Offline"
-        battery = f"{sensor_info['battery_level']}%" if sensor_info['battery_level'] else "N/A"
-        logger.info(f"  [{status}] {sensor_info['location']} - Battery: {battery}")
-    
-    logger.info(f"Found {len(temperature_sensors)} temperature sensor(s)")
-    return temperature_sensors
 
 
 def convert_temperature(raw_temp: int) -> float:

@@ -118,7 +118,7 @@ class DatabaseManager:
         self.conn.execute(sql, tuple(reading.values()))
         self.conn.commit()
 
-    def insert_temperature_reading(self, reading: dict, max_retries: int = 3) -> bool:
+    def insert_temperature_reading(self, reading: dict, max_retries: int = None) -> bool:
         """
         Insert a temperature reading with UNIQUE constraint handling and retry logic.
         

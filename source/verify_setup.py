@@ -25,9 +25,13 @@ import os
 import sqlite3
 import yaml
 import logging
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import datetime
 from typing import Tuple
+
+try:
+    from phue import Bridge
+except ImportError:
+    Bridge = None
 
 # Setup basic logging
 logging.basicConfig(
@@ -180,7 +184,7 @@ class HealthCheck:
             conn.commit()
             conn.close()
             
-            wal_status = "WAL mode enabled" if wal_enabled else "WAL mode NOT enabled (will be enabled on first collection)"
+            wal_status = "WAL mode enabled" if wal_enabled else "WAL mode NOT enabled (will be enabled when DatabaseManager is initialized)"
             return True, f"Database write test successful ({wal_status})"
             
         except Exception as e:
@@ -198,9 +202,7 @@ class HealthCheck:
             return False, f"Cannot load config/secrets: {e}"
         
         # Check if phue is available
-        try:
-            from phue import Bridge
-        except ImportError:
+        if Bridge is None:
             return False, "phue library not installed. Run: pip install phue"
         
         # Get connection details
