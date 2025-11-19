@@ -63,6 +63,7 @@ Rationale: Ensures collected data is usable for statistical analysis and advocac
 ## Technical Constraints
 
 - Python preferred for rapid development
+- Use Virtualenv for dependency management
 - SQLite database for structured storage
 - Local execution on Mac Studio (no cloud deployment)
 - Collection frequency: Every 5 minutes (flexible to 10-15 if rate limited)
