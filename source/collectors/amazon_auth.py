@@ -26,7 +26,7 @@ class AmazonCookieCapture:
     - Secure storage in secrets.yaml
     """
     
-    def __init__(self, domain: str = "amazon.com", headless: bool = False):
+    def __init__(self, domain: str = "amazon.co.uk", headless: bool = False):
         """
         Initialize cookie capture.
         
@@ -148,7 +148,7 @@ class AmazonCookieCapture:
             return False
 
 
-def capture_amazon_cookies(domain: str = "amazon.com", secrets_path: str = "config/secrets.yaml") -> bool:
+def capture_amazon_cookies(domain: str = "amazon.co.uk", secrets_path: str = "config/secrets.yaml") -> bool:
     """
     Convenience function to capture and save Amazon cookies.
     
@@ -280,7 +280,7 @@ if __name__ == "__main__":
     )
     
     parser = argparse.ArgumentParser(description="Capture Amazon cookies for Alexa API authentication")
-    parser.add_argument('--domain', default='amazon.com', help='Amazon domain (default: amazon.com)')
+    parser.add_argument('--domain', default='amazon.co.uk', help='Amazon domain (default: amazon.co.uk)')
     parser.add_argument('--secrets', default='config/secrets.yaml', help='Path to secrets.yaml')
     
     args = parser.parse_args()

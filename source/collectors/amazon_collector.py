@@ -9,8 +9,8 @@ Based on research findings from docs/Amazon-Alexa-Air-Quality-Monitoring/
 """
 
 import logging
-import requests
-import time
+import httpx
+import asyncio
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
@@ -57,30 +57,18 @@ class AmazonAQMCollector:
         # Extract CSRF token from cookies
         self.csrf_token = cookies.get('csrf', '')
         
-        # Set up HTTP session
-        self.session = requests.Session()
-        self.session.headers.update({
+        # Set up HTTP headers
+        self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
             'Accept': 'application/json',
             'Accept-Language': 'en-US,en;q=0.9',
             'Referer': f'https://{self.domain}/spa/index.html',
             'csrf': self.csrf_token,
-        })
+        }
         
-        # Add cookies to session
-        # Extract domain from self.domain (e.g., alexa.amazon.co.uk -> .amazon.co.uk)
-        # Handle both amazon.com and amazon.co.uk domains
-        domain_parts = self.domain.split('.')
-        if len(domain_parts) >= 3:
-            # For alexa.amazon.co.uk -> .amazon.co.uk
-            cookie_domain = '.' + '.'.join(domain_parts[-3:])
-        else:
-            # For amazon.com -> .amazon.com
-            cookie_domain = '.' + '.'.join(domain_parts[-2:])
-        
-        logger.debug(f"Setting cookies for domain: {cookie_domain}")
-        for name, value in cookies.items():
-            self.session.cookies.set(name, value, domain=cookie_domain)
+        # Store cookies for use with httpx
+        self.cookies = cookies
+        logger.debug(f"Configured {len(cookies)} cookies for domain: {self.domain}")
     
     async def list_devices(self) -> List[Dict[str, Any]]:
         """
@@ -120,11 +108,14 @@ class AmazonAQMCollector:
                 
                 # POST to GraphQL endpoint
                 url = f"https://{self.domain}/nexus/v1/graphql"
-                response = self.session.post(
-                    url,
-                    json={"query": query},
-                    timeout=self.max_timeout
-                )
+                
+                async with httpx.AsyncClient(cookies=self.cookies) as client:
+                    response = await client.post(
+                        url,
+                        json={"query": query},
+                        headers=self.headers,
+                        timeout=self.max_timeout
+                    )
                 
                 if response.status_code != 200:
                     logger.error(f"GraphQL API returned status {response.status_code}")
@@ -133,10 +124,10 @@ class AmazonAQMCollector:
                     if attempt == self.retry_max_attempts:
                         return []
                     
-                    # Retry with exponential backoff
+                    # Retry with exponential backoff (async)
                     wait_time = self.retry_base_delay * (2 ** (attempt - 1))
                     logger.info(f"Retrying in {wait_time}s...")
-                    time.sleep(wait_time)
+                    await asyncio.sleep(wait_time)
                     continue
                 
                 # Parse JSON response
@@ -159,7 +150,7 @@ class AmazonAQMCollector:
                         
                         wait_time = self.retry_base_delay * (2 ** (attempt - 1))
                         logger.info(f"Retrying in {wait_time}s...")
-                        time.sleep(wait_time)
+                        await asyncio.sleep(wait_time)
                         continue
                         
                 except Exception as json_err:
@@ -171,7 +162,7 @@ class AmazonAQMCollector:
                     
                     wait_time = self.retry_base_delay * (2 ** (attempt - 1))
                     logger.info(f"Retrying in {wait_time}s...")
-                    time.sleep(wait_time)
+                    await asyncio.sleep(wait_time)
                     continue
                 
                 endpoints = data.get('data', {}).get('endpoints', {}).get('items', [])
@@ -229,10 +220,10 @@ class AmazonAQMCollector:
                 if attempt == self.retry_max_attempts:
                     return []
                 
-                # Retry with exponential backoff
+                # Retry with exponential backoff (async)
                 wait_time = self.retry_base_delay * (2 ** (attempt - 1))
                 logger.info(f"Retrying in {wait_time}s...")
-                time.sleep(wait_time)
+                await asyncio.sleep(wait_time)
         
         return []
     
@@ -266,8 +257,14 @@ class AmazonAQMCollector:
                     }]
                 }
                 
-                # POST request (not GET!)
-                response = self.session.post(url, json=payload, timeout=self.max_timeout)
+                # POST request (not GET!) using async httpx
+                async with httpx.AsyncClient(cookies=self.cookies) as client:
+                    response = await client.post(
+                        url,
+                        json=payload,
+                        headers=self.headers,
+                        timeout=self.max_timeout
+                    )
                 
                 if response.status_code != 200:
                     logger.error(f"State API returned status {response.status_code}")
@@ -277,7 +274,7 @@ class AmazonAQMCollector:
                     
                     wait_time = self.retry_base_delay * (2 ** (attempt - 1))
                     logger.info(f"Retrying in {wait_time}s...")
-                    time.sleep(wait_time)
+                    await asyncio.sleep(wait_time)
                     continue
                 
                 data = response.json()
@@ -301,11 +298,12 @@ class AmazonAQMCollector:
                 }
                 
                 # Instance ID mapping (from GraphQL discovery and v5.0.5 code)
+                # Based on research from Sprint 2, these are the known sensor mappings
                 instance_mapping = {
                     "4": "humidity_percent",
                     "5": "voc_ppb",
                     "6": "pm25_ugm3",
-                    "7": "unknown_7",  # Unknown sensor
+                    "7": "unknown_7",  # TODO: Unknown sensor - appears in API but purpose unclear. Stored for future analysis.
                     "8": "co_ppm",
                     "9": "iaq_score",  # Indoor Air Quality score
                 }
@@ -352,7 +350,7 @@ class AmazonAQMCollector:
                 
                 wait_time = self.retry_base_delay * (2 ** (attempt - 1))
                 logger.info(f"Retrying in {wait_time}s...")
-                time.sleep(wait_time)
+                await asyncio.sleep(wait_time)
         
         return None
     

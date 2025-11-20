@@ -161,6 +161,44 @@ def discover_sensors(bridge: Bridge, config: dict) -> List[Dict]:
     
     try:
 
+        # Prefer direct HTTP call when bridge IP and api_key are available (matches tests)
+        api_key = bridge.username if hasattr(bridge, 'username') else None
+        bridge_ip = bridge.ip if hasattr(bridge, 'ip') else None
+
+        if api_key and bridge_ip:
+            start_time = time.time()
+            response = requests.get(f"http://{bridge_ip}/api/{api_key}/sensors", timeout=10)
+            response.raise_for_status()
+            api = response.json()
+            duration_ms = int((time.time() - start_time) * 1000)
+            response_size = sys.getsizeof(response.text)
+            logger.debug(f"API metrics: fetched sensors in {duration_ms}ms ({response_size} bytes)")
+        else:
+            # Fallback to bridge library API
+            api = bridge.get_api()
+        sensors = []
+        sensors_dict = api.get('sensors', {}) if isinstance(api, dict) and 'sensors' in api else api
+        for sensor_id, sensor in (sensors_dict or {}).items():
+            unique_id = sensor.get('uniqueid')
+            # Resolve location using config mapping or sensor name
+            name = get_sensor_location(sensor, config)
+            model_id = sensor.get('modelid')
+            reachable = sensor.get('config', {}).get('reachable', False)
+            battery = sensor.get('config', {}).get('battery')
+
+            sensors.append({
+                'sensor_id': sensor_id,
+                'unique_id': unique_id,
+                'location': name,
+                'model_id': model_id,
+                'is_reachable': reachable,
+                'battery_level': battery,
+            })
+
+        return sensors
+    except Exception as e:
+        logger.warning(f"Failed to discover sensors from bridge: {e}")
+        return []
 
 def convert_temperature(raw_temp: int) -> float:
     """

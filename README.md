@@ -44,7 +44,19 @@ A Python-based system for collecting and storing temperature readings from multi
 - Virtual environment activated: `source venv/bin/activate`
 - Dependencies installed: `pip install -r requirements.txt`
 
-### 1. Start the Web Server (for Amazon AQM Setup)
+### 1. Install Dependencies and Browser Binaries
+```bash
+# Install Python dependencies from requirements.txt
+pip install -r requirements.txt
+
+# Install Playwright browser binaries (required for web login automation)
+playwright install
+
+# Optional: Install system dependencies for Playwright (Linux/Mac)
+playwright install-deps
+```
+
+### 2. Start the Web Server (for Amazon AQM Setup)
 ```bash
 # Start Flask server for cookie capture UI
 make web-start
@@ -56,7 +68,7 @@ python source/web/app.py
 # Press Ctrl+C to stop the server
 ```
 
-### 2. Authenticate with Philips Hue Bridge
+### 3. Authenticate with Philips Hue Bridge
 The first time you connect, authenticate with your Hue Bridge:
 
 ```bash
@@ -70,7 +82,7 @@ make auth-ip HUE_IP=192.168.1.105
 
 Your Hue Bridge username will be saved to `config/secrets.yaml`.
 
-### 3. Authenticate with Amazon Account (Air Quality Monitor)
+### 4. Authenticate with Amazon Account (Air Quality Monitor)
 
 **Using Web UI** (Recommended):
 ```bash
@@ -92,7 +104,7 @@ python source/collectors/amazon_auth.py --domain amazon.co.uk
 
 Cookies are stored in `config/secrets.yaml` under `amazon_aqm.cookies`.
 
-### 4. Discover Devices
+### 5. Discover Devices
 
 ```bash
 # Discover Philips Hue sensors
@@ -102,7 +114,7 @@ make discover
 make aqm-discover
 ```
 
-### 5. Collect Temperature & Air Quality Data
+### 6. Collect Temperature & Air Quality Data
 
 **Philips Hue**:
 ```bash
@@ -133,7 +145,7 @@ python source/collectors/amazon_aqm_collector_main.py --collect-once
 python source/collectors/amazon_aqm_collector_main.py --continuous
 ```
 
-### 6. Query Data
+### 7. Query Data
 
 ```bash
 # View recent readings (all devices)

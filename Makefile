@@ -60,6 +60,8 @@ setup: ## Install dependencies and setup virtual environment
 	python3 -m venv venv
 	. venv/bin/activate && pip install --upgrade pip
 	. venv/bin/activate && pip install -r requirements.txt
+	@echo "$(BLUE)Installing Playwright browser binaries...$(NC)"
+	. venv/bin/activate && playwright install
 	@echo "$(GREEN)✓ Setup complete!$(NC)"
 	@echo "Activate with: source venv/bin/activate"
 

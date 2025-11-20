@@ -96,22 +96,37 @@ else:
 import asyncio
 from source.collectors.amazon_collector import AmazonAQMCollector
 from source.config.loader import load_config
+import yaml
 
 async def main():
-    config = load_config()
+    # Load configuration
+    with open('config/config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
     
-    # Initialize collector
-    collector = AmazonAQMCollector(config)
+    # Load cookies from secrets
+    with open('config/secrets.yaml', 'r') as f:
+        secrets = yaml.safe_load(f)
+    
+    cookies = secrets.get('amazon_aqm', {}).get('cookies', {})
+    
+    if not cookies:
+        print("❌ No Amazon cookies found in config/secrets.yaml")
+        print("Please run: python source/web/app.py and use the web UI to authenticate")
+        return
+    
+    # Initialize collector with cookies and config
+    collector = AmazonAQMCollector(cookies=cookies, config=config)
     
     # List all AQM devices
     devices = await collector.list_devices()
     
     print(f"Found {len(devices)} air quality monitor(s):")
     for device in devices:
-        print(f"\n  Device: {device['name']}")
-        print(f"    Serial: {device['serial_number']}")
+        print(f"\n  Device: {device['friendly_name']}")
+        print(f"    Device ID: {device['device_id']}")
         print(f"    Entity ID: {device['entity_id']}")
-        print(f"    Model: {device.get('model_name', 'Unknown')}")
+        print(f"    Serial: {device['device_serial']}")
+        print(f"    Capabilities: {len(device.get('capabilities', []))} sensors")
 
 asyncio.run(main())
 ```
@@ -158,15 +173,26 @@ asyncio.run(main())
 
 ```python
 import asyncio
+import yaml
 from source.collectors.amazon_collector import AmazonAQMCollector
 from source.storage.manager import DatabaseManager
-from source.config.loader import load_config
 
 async def main():
-    config = load_config()
+    # Load config and secrets
+    with open('config/config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+    
+    with open('config/secrets.yaml', 'r') as f:
+        secrets = yaml.safe_load(f)
+    
+    cookies = secrets.get('amazon_aqm', {}).get('cookies', {})
+    
+    if not cookies:
+        print("❌ No cookies found - authenticate via web UI first")
+        return
     
     # Initialize collector
-    collector = AmazonAQMCollector(config)
+    collector = AmazonAQMCollector(cookies=cookies, config=config)
     
     # Discover devices
     devices = await collector.list_devices()
@@ -175,31 +201,34 @@ async def main():
         return
     
     device = devices[0]
-    print(f"Found device: {device['name']} ({device['serial_number']})")
+    print(f"Found device: {device['friendly_name']} ({device['device_id']})")
     
     # Collect readings
-    readings = await collector.get_air_quality_readings(
-        entity_id=device['entity_id'],
-        serial_number=device['serial_number']
-    )
+    readings = await collector.get_air_quality_readings(entity_id=device['entity_id'])
     
     if not readings:
         print("❌ Failed to collect readings")
         return
     
-    print(f"✅ Collected {len(readings)} sensor readings:")
-    print(f"  Temperature: {readings.get(4, {}).get('value')}°C")
-    print(f"  Humidity: {readings.get(5, {}).get('value')}%")
-    print(f"  PM2.5: {readings.get(6, {}).get('value')} µg/m³")
-    print(f"  VOC: {readings.get(7, {}).get('value')} ppb")
-    print(f"  CO: {readings.get(8, {}).get('value')} ppm")
-    print(f"  IAQ Score: {readings.get(9, {}).get('value')}")
+    print(f"✅ Collected readings:")
+    print(f"  Temperature: {readings.get('temperature_celsius')}°C")
+    print(f"  Humidity: {readings.get('humidity_percent')}%")
+    print(f"  PM2.5: {readings.get('pm25_ugm3')} µg/m³")
+    print(f"  VOC: {readings.get('voc_ppb')} ppb")
+    print(f"  CO: {readings.get('co_ppm')} ppm")
+    print(f"  IAQ Score: {readings.get('iaq_score')}")
+    
+    # Validate readings
+    errors = collector.validate_readings(readings)
+    if errors:
+        print(f"⚠️ Validation warnings: {errors}")
     
     # Format for database insertion
     reading_record = collector.format_reading_for_db(
+        entity_id=device['entity_id'],
+        serial=device['device_serial'],
         readings=readings,
-        serial_number=device['serial_number'],
-        entity_id=device['entity_id']
+        config=config
     )
     
     if not reading_record:

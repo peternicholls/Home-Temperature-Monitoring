@@ -1,12 +1,14 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 import logging
 import sys
 import os
+import yaml
 
 # Add the project root to the python path so we can import from source
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from source.collectors.amazon_auth import run_amazon_login
+from source.config.loader import load_config
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -23,10 +25,31 @@ def setup():
 @app.route('/api/amazon/login', methods=['POST'])
 def amazon_login():
     try:
-        cookies = run_amazon_login()
+        # Get domain from request body, config, or default to amazon.co.uk
+        data = request.get_json() or {}
+        domain = data.get('domain')
+        
+        if not domain:
+            # Try to load from config
+            try:
+                config = load_config()
+                domain = config.get('collectors', {}).get('amazon_aqm', {}).get('domain') or \
+                        config.get('amazon_aqm', {}).get('domain')
+            except Exception as e:
+                logger.warning(f"Could not load config for domain: {e}")
+                domain = None
+        
+        # Default to amazon.co.uk if not found
+        if not domain:
+            domain = 'amazon.co.uk'
+        
+        logger.info(f"Starting Amazon login for domain: {domain}")
+        
+        # Run login with specified domain
+        cookies = run_amazon_login(domain=domain)
+        
         if cookies:
             # Save cookies to secrets.yaml
-            import yaml
             secrets_path = os.path.join(os.path.dirname(__file__), '../../config/secrets.yaml')
             
             # Read existing secrets
@@ -40,13 +63,19 @@ def amazon_login():
             if 'amazon_aqm' not in secrets:
                 secrets['amazon_aqm'] = {}
             secrets['amazon_aqm']['cookies'] = cookies
+            secrets['amazon_aqm']['domain'] = domain  # Store domain for reference
             
             # Write back to file
             with open(secrets_path, 'w') as f:
                 yaml.dump(secrets, f, default_flow_style=False)
             
-            logger.info(f"Saved {len(cookies)} cookies to {secrets_path}")
-            return jsonify({"status": "success", "message": f"Login successful! Saved {len(cookies)} cookies.", "cookies_count": len(cookies)})
+            logger.info(f"Saved {len(cookies)} cookies to {secrets_path} for domain: {domain}")
+            return jsonify({
+                "status": "success",
+                "message": f"Login successful! Saved {len(cookies)} cookies for {domain}.",
+                "cookies_count": len(cookies),
+                "domain": domain
+            })
         else:
             return jsonify({"status": "error", "message": "Login failed or cancelled"}), 400
     except Exception as e:
