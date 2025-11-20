@@ -2,9 +2,22 @@
 
 ## Project Overview
 
+**Project Name**: Home Temperature Monitoring
 **Status**: Active Development  
-**Type**: Quick and Dirty Data Collection  
-**Last Updated**: 2025-11-18
+**Current Sprint**: Sprint 5 - System Reliability (In Progress)  
+**Completed Sprints**: 0 (Foundation), 1 (Hue), 4 (Amazon AQM)  
+**Last Updated**: 2025-11-20
+
+---
+
+## ⚠️ Critical Reminders for AI Agents
+
+1. **ALWAYS ACTIVATE PYTHON VENV FIRST**: `source venv/bin/activate` before any Python commands
+2. **VERIFY TECH STACK OPTIONS**: Review `docs/tech-stack.md` - we have Python, Swift, C/C++, Node.js available
+3. **TEST-DRIVEN DEVELOPMENT**: Write tests before implementation (not 'quick and dirty' anymore)
+4. **RESEARCH COMPLEX FEATURES**: Document research in research.md (see Sprint 4 example)
+
+---
 
 ### Purpose
 
@@ -14,22 +27,24 @@ Collect temperature and air quality readings from home IoT sensors (Philips Hue,
 
 ### Key Principles
 
-1. **Quick and Dirty**: Prioritize working solutions over perfect architecture
-2. **Data Collection Focus**: We care about collecting and storing data correctly, not analyzing it
-3. **Sprint-Based Development**: Work in feature-based sprints with stories and tasks
-4. **Format Matters**: Data must be stored in a format suitable for future analysis
+1. **Test-Driven Development**: Unit tests guide implementation (evolved from 'quick and dirty' after Sprint 4 complexity)
+2. **Research-Driven**: Complex features require research logs, experimentation, and iteration (see `specs/004-alexa-aqm-integration/research.md`)
+3. **Data Collection Focus**: We care about collecting and storing data correctly, not analyzing it
+4. **Sprint-Based Development**: Work in feature-based sprints with comprehensive specs
+5. **Format Matters**: Data must be stored in a format suitable for future analysis
+6. **Tech Stack Diversity**: Consider full tech stack options (Python, Swift, C/C++, Node.js) - see `docs/tech-stack.md`
 
 ## Scope
 
 ### In Scope
-- ✅ Collecting temperature readings from Philips Hue sensors
-- ✅ Collecting air quality and temperature readings from Amazon Alexa Air Quality Monitor
-- ✅ Collecting temperature readings from Google Nest devices
-- ✅ Collecting outside temperature from aggregate weather API services
-- ✅ Storing data in SQLite database for efficient querying and analysis
-- ✅ Timestamping and metadata for each reading
-- ✅ Basic error handling and retry logic
-- ✅ Scheduled/automated collection
+- ✅ Collecting temperature readings from Philips Hue sensors (IMPLEMENTED)
+- ✅ Collecting air quality and temperature readings from Amazon Alexa Air Quality Monitor (IMPLEMENTED)
+- ⏳ Collecting temperature readings from Google Nest devices (PLANNED)
+- ⏳ Collecting outside temperature from aggregate weather API services (PLANNED)
+- ✅ Storing data in SQLite database for efficient querying and analysis (IMPLEMENTED)
+- ✅ Timestamping and metadata for each reading (IMPLEMENTED)
+- ⏳ Comprehensive error handling and retry logic (IN PROGRESS - Sprint 5)
+- ⏳ Automated scheduled collection (PARTIAL - collector code ready, scheduling pending)
 
 ### Out of Scope
 - ❌ Data analysis and visualization (future project)
@@ -40,12 +55,12 @@ Collect temperature and air quality readings from home IoT sensors (Philips Hue,
 
 ## Data Sources
 
-| Source | Device Type | Priority | API/Protocol |
-|--------|-------------|----------|--------------|
-| **Philips Hue** | Motion sensors (temperature capability) | High | Hue Bridge API (local/cloud) |
-| **Amazon Alexa Air Quality Monitor** | Air quality and temperature monitor | High | Alexa Smart Home API / Smart Properties API |
-| **Google Nest** | Thermostats | High | Google Nest API / SDM API |
-| **Weather API** | Outside temperature (aggregate service) | Medium | Weather API service (e.g., OpenWeatherMap, WeatherAPI) |
+| Source | Device Type | Priority | API/Protocol | Status |
+|--------|-------------|----------|--------------|--------|
+| **Philips Hue** | Motion sensors (temperature capability) | High | Hue Bridge API (local) | ✅ Implemented |
+| **Amazon Alexa Air Quality Monitor** | Air quality and temperature monitor | High | GraphQL API via Amazon | ✅ Implemented |
+| **Google Nest** | Thermostats | High | Google Nest API / SDM API | ⏳ Planned |
+| **Weather API** | Outside temperature (aggregate service) | Medium | Weather API service | ⏳ Planned |
 ## Data Requirements
 
 ### Minimum Data Points Per Reading
@@ -94,9 +109,11 @@ For outside temperature readings, record weather conditions using consistent cat
 ## Technical Constraints
 
 ### Development Approach
-- Use tools from available tech stack (Python preferred for rapid development)
+- **CRITICAL**: Always activate Python virtual environment before running code: `source venv/bin/activate`
+- Consider full tech stack options (see `docs/tech-stack.md`): Python, Swift, C/C++, Node.js
+- Python preferred for data collection, but evaluate alternatives for performance-critical code
 - SQLite database for structured storage and efficient time-series queries
-- Local execution on Mac Studio (no cloud deployment required)
+- Local execution on Mac Studio M2 Ultra (128GB RAM, 60-core GPU via Metal)
 
 ### Performance Requirements
 - Collection frequency: Every 5 minutes (288 readings/day per sensor) to accurately track heating/cooling cycles and occupancy mode transitions
@@ -108,53 +125,88 @@ For outside temperature readings, record weather conditions using consistent cat
 ## Sprint Structure
 
 ### Sprint Numbering
-- Sprints are numbered **S000**, **S001**, **S002**, etc.
-- Tasks within sprints are numbered **T001**, **T002**, **T003**, etc. (sequential across all sprints)
-- Each sprint has a branch named `sprint-N-name` (e.g., `sprint-0-foundation`)
+- Sprints are numbered **001**, **002**, **003**, etc. (zero-padded)
+- Branch naming: `NNN-short-name` (e.g., `001-project-foundation`)
+- Spec directories: `specs/NNN-name/` (e.g., `specs/001-project-foundation/`)
+- Each sprint corresponds to one feature/capability
 
 ### Sprint Definition
-- **Duration**: Flexible (1-2 weeks typical)
-- **Goal**: Deliver one complete feature
-- **Components**: Multiple stories, each with tasks
-- **Output**: Working, committed code + documentation
-- **Branch**: Named `sprint-N-name` created from `main`
-- **Documentation**: `specification.md` and `plan.md` in `sprints/sprint-N-name/`
+- **Duration**: Flexible (3-7 days typical)
+- **Goal**: Deliver one complete, testable feature
+- **Components**: User stories, functional requirements, acceptance criteria
+- **Output**: Working code + tests + documentation
+- **Branch**: Named `NNN-short-name` created from `master`
+- **Documentation**: Comprehensive spec in `specs/NNN-name/`
+- **Merge**: Via Pull Request with code review
 
 ### Sprint Workflow
-1. **Planning**: Create sprint branch, write specification.md and plan.md using templates
-2. **Task Compilation**: Create detailed task list from stories (tasks may optionally have individual task docs)
-3. **Development**: Implement tasks on sprint branch
-4. **Validation**: Verify deliverables meet acceptance criteria
-5. **Merge**: Merge sprint branch to `main` when complete
-6. **Retrospective**: Update plan.md with outcomes and learnings
+1. **Planning**: Create sprint branch, write spec.md and plan.md
+2. **Research**: Investigate APIs, document findings in research.md (critical for complex features)
+3. **Test Design**: Write test cases based on acceptance criteria (TDD approach)
+4. **Implementation**: Implement features to pass tests (iterate: test → code → refine)
+5. **Validation**: Verify deliverables meet acceptance criteria, run full test suite
+6. **Code Review**: Self-review or automated analysis before merge
+7. **Merge**: Merge to `master` via Pull Request
+8. **Retrospective**: Update plan.md with outcomes, learnings, and metrics
 
-### Templates
-All planning documents use templates from `docs/templates/`:
-- `sprint-specification.md` - Sprint requirements and design
-- `sprint-plan.md` - Task list and progress tracking
-- `task.md` - Individual task documentation (optional, for complex tasks)
+### Documentation Templates
+All spec documents follow a consistent structure:
+- **spec.md**: User scenarios, requirements, success criteria, edge cases
+- **plan.md**: Implementation plan, task breakdown, dependencies
+- **research.md**: API research, technical investigation
+- **data-model.md**: Database schema, data structures
+- **quickstart.md**: Quick reference and usage guide
+- Template reference: `docs/spec-structure-reference.md`
 
 ### Definition of Done (per Sprint)
-- [ ] Feature implemented and tested
-- [ ] Code committed to git
-- [ ] Documentation updated
-- [ ] Data collection verified working
-- [ ] No breaking changes to existing data format
+- [ ] Unit tests written and passing (minimum 80% coverage for new code)
+- [ ] Feature implemented following TDD approach
+- [ ] All tests passing in Python venv: `pytest tests/`
+- [ ] Research documented in research.md (if complex feature)
+- [ ] Code committed to git with descriptive messages
+- [ ] Documentation updated (spec.md, plan.md, quickstart.md)
+- [ ] Data collection verified working in real environment
+- [ ] No breaking changes to existing data format or API contracts
+- [ ] Security review completed (credentials, secrets, API exposure)
 
 ## Development Workflow
 
-### Branch Strategy
-- `main`: Stable, working code
-- `sprint-0-foundation`: Sprint 0 development
-- `sprint-1-hue`: Sprint 1 development
-- `sprint-2-alexa`: Sprint 2 development
-- `sprint-3-nest`: Sprint 3 development
-- `sprint-4-automation`: Sprint 4 development
-- `sprint-4-quality`: Sprint 4 development
-- `sprint-5-polish`: Sprint 5 development (optional)
-- `hotfix/*`: Quick fixes for broken collection
+### Development Environment Setup
 
-Each sprint branch is created from `main` and merged back when sprint deliverables are complete.
+**CRITICAL - Python Virtual Environment**:
+```bash
+# ALWAYS activate venv before running Python code
+source venv/bin/activate
+
+# Verify activation (should show venv path)
+which python
+# Expected: /Users/peternicholls/Dev/HomeTemperatureMonitoring/venv/bin/python
+
+# Install/update dependencies
+pip install -r requirements.txt
+```
+
+**Why This Matters**:
+- Running Python without venv wastes tokens and time with dependency errors
+- Tests fail when run outside venv
+- Package installations go to wrong location
+- AI agents frequently forget this step - always check first!
+
+**Tech Stack Reference**: See `docs/tech-stack.md` for full options (Python, Swift, C/C++, Node.js)
+
+### Branch Strategy
+- `master`: Stable, production-ready code (default branch)
+- `NNN-short-name`: Feature branches (e.g., `001-project-foundation`, `002-hue-integration`)
+- Feature branches created from `master` and merged via Pull Request when complete
+- Each feature corresponds to a spec in `specs/NNN-name/`
+
+**Completed Branches** (merged to master):
+- `001-project-foundation` ✅
+- `002-hue-integration` ✅  
+- `004-alexa-aqm-integration` ✅
+
+**Active Branch**:
+- `005-system-reliability` ⏳
 
 ### Commit Standards
 - Descriptive messages
@@ -162,174 +214,132 @@ Each sprint branch is created from `main` and merged back when sprint deliverabl
 - Working code only (or clearly marked WIP)
 
 ### Testing Standards
-- Manual verification acceptable (quick and dirty)
-- At minimum: verify data collection produces valid output
-- Check API authentication works
-- Confirm data format consistency
+- **Approach**: Test-Driven Development (TDD) - write tests before implementation
+- **Unit Tests**: 33 total tests (18 Hue + 15 Amazon AQM)
+- **Test Framework**: pytest with async support and comprehensive mocking
+- **Mocking**: Comprehensive mocking for external APIs (avoid actual API calls in tests)
+- **Coverage**: Focus on critical paths (authentication, data collection, storage)
+- **Manual Testing**: Used for integration validation and exploratory testing
+- **Evaluation Framework**: Automated evaluation with test datasets (see `evaluation.py`)
+- **Research Log**: Complex features require research documentation (see Sprint 4 example)
+- **Iteration**: Expect multiple cycles of research → experiment → test → refine
 
-## File Structure (Proposed)
+## File Structure (Current Implementation)
 
 ```
 HomeTemperatureMonitoring/
 ├── docs/
-│   ├── project-constitution.md (this file)
+│   ├── project-outliner.md (this file)
 │   ├── tech-stack.md
-│   └── templates/
-│       ├── sprint-specification.md
-│       ├── sprint-plan.md
-│       └── task.md
-├── sprints/
-│   ├── sprint-0-foundation/  (S000)
-│   │   ├── specification.md
-│   │   ├── plan.md
-│   │   └── tasks/ (optional)
-│   │       ├── T001.md
-│   │       └── T002.md
-│   ├── sprint-1-hue/  (S001)
-│   │   ├── specification.md
-│   │   └── plan.md
-│   ├── sprint-2-nest/  (S002)
-│   │   ├── specification.md
-│   │   └── plan.md
-│   ├── sprint-3-automation/  (S003)
-│   │   ├── specification.md
-│   │   └── plan.md
-│   └── sprint-4-quality/  (S004)
-│       ├── specification.md
-│       └── plan.md
+│   ├── evaluation-framework.md
+│   ├── credential-rotation-guide.md
+│   ├── hue-authentication-guide.md
+│   └── code-review-system-reliability.md
+├── specs/  (sprint documentation)
+│   ├── 001-project-foundation/
+│   ├── 002-hue-integration/
+│   ├── 003-system-reliability/
+│   ├── 004-alexa-aqm-integration/
+│   └── 005-system-reliability/  (verification sprint)
 ├── source/
 │   ├── collectors/
+│   │   ├── hue_auth.py
 │   │   ├── hue_collector.py
-│   │   └── nest_collector.py
+│   │   ├── amazon_auth.py
+│   │   ├── amazon_collector.py
+│   │   └── amazon_aqm_collector_main.py
 │   ├── storage/
-│   │   └── data_writer.py
-│   └── scheduler/
-│       └── collection_scheduler.py
+│   │   ├── manager.py  (SQLite database manager)
+│   │   └── schema.py   (database schema definitions)
+│   ├── config/
+│   │   ├── loader.py
+│   │   └── validator.py
+│   ├── utils/
+│   │   └── logging.py
+│   ├── web/
+│   │   ├── app.py  (Flask web interface)
+│   │   └── templates/
+│   ├── evaluation.py
+│   └── verify_setup.py
 ├── data/
-│   └── readings/
-│       └── YYYY-MM-DD.csv (or similar)
+│   ├── temperature_readings.db  (SQLite database)
+│   └── evaluation_*.json(l)  (evaluation datasets)
 ├── config/
 │   ├── config.yaml
-│   └── secrets.yaml (gitignored)
+│   ├── secrets.yaml (gitignored)
+│   └── secrets.yaml.example
 ├── tests/
-│   └── (basic tests)
+│   ├── test_hue_collector.py
+│   ├── test_amazon_aqm.py
+│   └── manual/
+├── logs/  (application logs)
 ├── Makefile
 ├── requirements.txt
+├── pytest.ini
 └── README.md
 ```
 
 ### Sprint Documentation Structure
 
-Each sprint folder contains:
-- **specification.md**: Detailed requirements, acceptance criteria, and technical design (from template)
-- **plan.md**: Task breakdown, time estimates, dependencies, and progress tracking (from template)
-- **tasks/** (optional): Individual task documentation for complex tasks (from template)
+Each spec folder (`specs/NNN-name/`) contains:
+- **spec.md**: Feature requirements and user scenarios
+- **plan.md**: Implementation plan and task breakdown
+- **research.md**: Technical research and API documentation
+- **data-model.md**: Data structures and database schema
+- **quickstart.md**: Quick reference guide
+- **checklists/**: Quality validation checklists
+- **contracts/**: API contracts and interfaces
+- **tasks.md**: Detailed task list with status tracking
 
 ## Project Sprints
 
-### Sprint 0: Project Foundation
-**Goal**: Establish project structure and core architecture  
-**Duration**: 1-2 days
+### Completed Sprints
 
-**Stories**:
-1. **Project Scaffolding**
-   - Create directory structure (src/, data/, config/, tests/)
-   - Set up Python virtual environment
-   - Create requirements.txt with initial dependencies
-   - Initialize Makefile with common tasks
-   - Create README.md with setup instructions
+**Sprint 0: Project Foundation** ✅  
+Established project structure, configuration management (config.yaml, secrets), SQLite database schema, and data format definition. See `specs/001-project-foundation/` for details.
 
-2. **Configuration Management**
-   - Define config.yaml schema (collection intervals, data paths)
-   - Create secrets.yaml.example template
-   - Implement config loader utility
-   - Add .gitignore for secrets and data files
+**Sprint 1: Philips Hue Integration** ✅  
+Implemented Hue Bridge authentication, sensor discovery, and temperature data collection with 18 unit tests. See `specs/002-hue-integration/` for details.
 
-3. **Data Format Definition**
-   - Define unified data schema (CSV columns or JSON structure)
-   - Create sample data file with headers
-   - Document data dictionary
-   - Establish file naming convention (timestamps, rotation)
-
-**Deliverables**: Working project skeleton, documented data format
+**Sprint 4: Amazon Alexa Air Quality Monitor Integration** ✅  
+Integrated Amazon AQM with GraphQL API, OAuth authentication, async collectors, and comprehensive air quality metrics (PM2.5, PM10, VOC, CO2e). 15 unit tests, 5 security vulnerabilities fixed. See `specs/004-alexa-aqm-integration/` for details.
 
 ---
 
-### Sprint 1: Philips Hue Integration
-**Goal**: Collect temperature data from Philips Hue motion sensors  
-**Duration**: 3-5 days
+### Sprint 5: System Reliability IN PROGRESS
+**Goal**: Enhance system reliability, monitoring, and error handling  
+**Duration**: 3-4 days
 
 **Stories**:
-1. **Hue Bridge Discovery & Authentication**
-   - Discover Hue Bridge on local network (mDNS or manual IP)
-   - Implement Bridge button press authentication flow
-   - Generate and securely store API key
-   - Test connection to Bridge
+1. **Enhanced Error Handling**
+   - Implement comprehensive exception handling for all API calls
+   - Add circuit breaker pattern for failing data sources
+   - Create error classification (transient vs permanent failures)
+   - Implement graceful degradation for partial system failures
 
-2. **Sensor Discovery & Enumeration**
-   - Query all sensors from Bridge
-   - Filter for sensors with temperature capability
-   - Map sensors to room/location names
-   - Store sensor metadata (ID, name, type, location)
+2. **Health Monitoring & Alerting**
+   - Create health check endpoint/script for system status
+   - Monitor collection success rates per device
+   - Track API response times and timeouts
+   - Implement basic alerting for prolonged failures (email/log)
 
-3. **Temperature Data Collection**
-   - Implement temperature reading from each sensor
-   - Convert to Celsius if needed
-   - Add timestamp and metadata
-   - Handle sensor offline/unavailable scenarios
+3. **Data Integrity Verification**
+   - Add checksums or validation hashes for database records
+   - Implement automatic gap detection in time series
+   - Create data completeness reports (% uptime per device)
+   - Add database integrity checks on startup
 
-4. **Data Storage**
-   - Implement sqlite database etc.
-   - Write readings with proper format
-   - Handle file rotation (daily/weekly files)
-   - Verify data integrity
+4. **Collection Metrics & Observability**
+   - Track and log collection statistics (readings/hour, failures/hour)
+   - Create daily summary reports (devices collected, gaps, errors)
+   - Add performance metrics (API latency, database write times)
+   - Implement structured logging with log levels
 
-**Deliverables**: Working Hue collector storing timestamped temperature data
+**Deliverables**: Robust system with comprehensive monitoring, error handling, and data integrity verification
 
 ---
 
-### Sprint 2: Amazon Alexa Air Quality Monitor Integration
-**Goal**: Collect air quality and temperature data from Amazon Alexa Air Quality Monitor  
-**Duration**: 5-7 days
-
-**Stories**:
-1. **Amazon Developer Account Setup**
-   - Create Amazon Developer account
-   - Configure Login with Amazon (LWA) credentials
-   - Set up Alexa Smart Home Skill or Smart Properties API access
-   - Document authentication requirements
-
-2. **OAuth Authentication Flow**
-   - Implement OAuth 2.0 flow for Alexa API
-   - Handle token storage and refresh
-   - Test authentication with Amazon account
-   - Verify device access permissions
-
-3. **Device Discovery & Enumeration**
-   - Query Alexa devices via Smart Home API
-   - Filter for air quality monitors
-   - Map devices to location names
-   - Store device metadata (ID, name, location, type)
-
-4. **Air Quality & Temperature Data Collection**
-   - Implement air quality metrics collection (PM2.5, PM10, VOC, CO2e)
-   - Extract temperature readings
-   - Extract air quality index/rating
-   - Handle device offline scenarios
-   - Normalize air quality data to standard formats
-
-5. **Unified Data Integration**
-   - Extend database schema for air quality metrics
-   - Merge Alexa data with existing Hue data format
-   - Ensure consistent timestamp format
-   - Add device type/source identifier
-   - Test combined data output
-
-**Deliverables**: Working Alexa collector integrated with air quality and temperature data storage
-
----
-
-### Sprint 3: Google Nest Integration
+### Sprint 6: Google Nest Integration
 **Goal**: Collect temperature data from Google Nest thermostats  
 **Duration**: 4-6 days
 
@@ -368,7 +378,7 @@ Each sprint folder contains:
 
 ---
 
-### Sprint 3: Automation & Scheduling
+### Sprint 7: Automation & Scheduling
 **Goal**: Automated periodic data collection with reliability  
 **Duration**: 3-4 days
 
@@ -403,7 +413,7 @@ Each sprint folder contains:
 
 ---
 
-### Sprint 4: Data Quality & Validation
+### Sprint 8: Data Quality & Validation
 **Goal**: Ensure data integrity and prepare for analysis  
 **Duration**: 2-3 days
 
@@ -437,7 +447,7 @@ Each sprint folder contains:
 
 ---
 
-### Sprint 5: Polish & Maintenance (Optional/Future)
+### Sprint 9: Polish & Maintenance (Optional/Future)
 **Goal**: Production readiness and long-term maintenance  
 **Duration**: Ongoing
 
@@ -457,26 +467,29 @@ Each sprint folder contains:
 
 ## Sprint Sequencing
 
-**Critical Path** (Must Complete):
-1. Sprint 0 → Sprint 1 → Sprint 2 → Sprint 3 → Sprint 4
+**Completed** ✅:
+- Sprint 0 (Project Foundation)
+- Sprint 1 (Philips Hue Integration)
+- Sprint 4 (Amazon AQM Integration)
 
-**Parallel Opportunities**:
-- Sprint 1 and Sprint 2 could potentially be parallelized if working with multiple people
-- Sprint 4 stories can begin during Sprint 3 (validation on early data)
+**In Progress** ⏳:
+- Sprint 5 (System Reliability)
 
-**Flexibility**:
-- Sprint 5 is optional/ongoing maintenance
-- Can pause after Sprint 3 if automation is working well
-- Can extend any sprint if complexity discovered
+**Planned**:
+- Sprint 6 (Google Nest Integration)
+- Sprint 7 (Automation & Scheduling)
+- Sprint 8 (Data Quality & Validation)
+- Sprint 9 (Polish & Maintenance - Optional)
 
-# Sprint Planning Structure
+**Notes**:
+- Nest integration (Sprint 6) and Weather API integration deferred pending system reliability completion
+- Sprint 7 automation partially implemented; full scheduling pending reliability improvements
 
-- Sprint 0: Project Foundation
-  - Setup, configuration, schema, documentation
-- Sprint 1: Philips Hue integration
-- Sprint 2: Nest integration
-- Sprint 3: Weather API integration
-- Sprint 4+: Data analysis, reporting, enhancements
+## Current Sprint Status
+
+**Active**: Sprint 5 (System Reliability) - In Progress ⏳  
+**Last Completed**: Sprint 4 (Amazon AQM Integration) - Merged to master ✅  
+**Next Planned**: See `NEXT_SPRINT_ROADMAP.md` for strategic options
 
 ## Clarifications
 
@@ -492,26 +505,38 @@ Each sprint folder contains:
 ## Success Criteria
 
 The project is successful when:
-1. ✅ Temperature data is collected from both Philips Hue and Google Nest
-2. ✅ Data is stored in a consistent, analysis-ready format
-3. ✅ Collection runs automatically on a schedule
-4. ✅ System recovers gracefully from temporary failures
-5. ✅ Data format is documented and stable
+1. ✅ Temperature data is collected from Philips Hue sensors
+2. ✅ Air quality and temperature data collected from Amazon AQM
+3. ⏳ Temperature data collected from Google Nest thermostats (pending)
+4. ✅ Data is stored in SQLite database in analysis-ready format
+5. ⏳ Collection runs automatically on a schedule (partial implementation)
+6. ⏳ System recovers gracefully from temporary failures (in progress)
+7. ✅ Data format is documented and stable
 
 ## API & Authentication Notes
 
-### Philips Hue
-- Requires local network access to Hue Bridge
-- Authentication via Bridge button press + API key generation
-- Local API preferred (no cloud dependency)
-- Rate limits: Generous for local polling
+### Philips Hue (IMPLEMENTED ✅)
+- Local network access to Hue Bridge
+- Authentication: Bridge button press + API key generation
+- API key stored in `secrets.yaml`
+- Local API only (no cloud dependency)
+- Implementation: `source/collectors/hue_auth.py`, `hue_collector.py`
+- Guide: `docs/hue-authentication-guide.md`
 
-### Google Nest
-- Requires Google Cloud project setup
+### Amazon Alexa Air Quality Monitor (IMPLEMENTED ✅)
+- GraphQL API via Amazon Web Services
+- OAuth 2.0 authentication (LWA - Login with Amazon)
+- Tokens stored in `secrets.yaml` with auto-refresh
+- Implementation: `source/collectors/amazon_auth.py`, `amazon_collector.py`
+- Async/await pattern for efficient data collection
+- Guide: `docs/Amazon-Alexa-Air-Quality-Monitoring/`
+
+### Google Nest (PLANNED ⏳)
+- Google Cloud project setup required
 - OAuth 2.0 authentication
 - Smart Device Management (SDM) API
-- Rate limits: Check current quotas
-- May require subscription ($5 one-time for SDM API access)
+- $5 one-time SDM API access fee
+- Rate limits: TBD based on quotas
 
 ## Non-Functional Requirements
 
@@ -528,11 +553,20 @@ The project is successful when:
 - Log errors for debugging
 
 ### Maintainability
-- Quick and dirty acceptable
+- Test-driven development for reliability (evolved from 'quick and dirty')
 - Code should be understandable in 6 months
-- Minimal dependencies
+- Minimal dependencies per language ecosystem
+- Consider tech stack alternatives for performance-critical code (see `docs/tech-stack.md`)
+
+### Performance
+- Profile before optimizing (measure actual bottlenecks)
+- Consider Swift/C++ for performance-critical paths (Core ML, Metal GPU acceleration)
+- Leverage Mac Studio M2 Ultra capabilities (128GB RAM, 60-core GPU)
+- Python default unless profiling shows need for compiled languages
 
 ---
 
-**Next Steps**: Create Sprint 1 planning document and begin implementation.
+**Project Status**: Active development on Sprint 5 (System Reliability)
+**Last Updated**: 2025-11-20
+**For Strategic Planning**: See `NEXT_SPRINT_ROADMAP.md`
 
