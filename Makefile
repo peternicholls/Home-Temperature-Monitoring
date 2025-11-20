@@ -1,4 +1,4 @@
-.PHONY: help setup clean test auth discover collect collect-once continuous db-reset db-query db-view logs tail
+.PHONY: help setup clean auth auth-ip discover collect-once continuous aqm-setup aqm-discover aqm-collect aqm-continuous aqm-test web-start web-stop db-reset db-query db-view db-stats logs logs-tail logs-clear test test-discover test-full lint format
 
 # Colors for output
 BLUE := \033[0;34m
@@ -14,14 +14,24 @@ help: ## Show this help message
 	@echo "  make setup          - Install dependencies and setup virtual environment"
 	@echo "  make clean          - Remove all build, test, and cache artifacts"
 	@echo ""
+	@echo "$(GREEN)Web Server (Flask UI):$(NC)"
+	@echo "  make web-start      - Start Flask server for Amazon cookie capture (http://localhost:5001/setup)"
+	@echo "  make web-stop       - Stop Flask server gracefully"
+	@echo ""
 	@echo "$(GREEN)Authentication & Configuration:$(NC)"
 	@echo "  make auth           - Authenticate with Hue Bridge (press button when prompted)"
 	@echo "  make auth-ip        - Authenticate with manual Bridge IP (set HUE_IP=192.168.1.x)"
 	@echo ""
-	@echo "$(GREEN)Discovery & Collection:$(NC)"
-	@echo "  make discover       - List all temperature sensors"
-	@echo "  make collect-once   - Collect readings once and store in database"
-	@echo "  make continuous     - Run continuous collection (Ctrl+C to stop)"
+	@echo "$(GREEN)Philips Hue Discovery & Collection:$(NC)"
+	@echo "  make discover       - List all Hue temperature sensors"
+	@echo "  make collect-once   - Collect Hue readings once and store in database"
+	@echo "  make continuous     - Run continuous Hue collection (Ctrl+C to stop)"
+	@echo ""
+	@echo "$(GREEN)Amazon Air Quality Monitor (AQM):$(NC)"
+	@echo "  make aqm-discover   - List all Amazon Air Quality Monitor devices"
+	@echo "  make aqm-collect    - Collect AQM readings once and store in database"
+	@echo "  make aqm-continuous - Run continuous AQM collection (5-min intervals, Ctrl+C to stop)"
+	@echo "  make aqm-test       - Test AQM integration (discover + collect + verify DB)"
 	@echo ""
 	@echo "$(GREEN)Database:$(NC)"
 	@echo "  make db-reset       - Delete and recreate empty database"
@@ -50,6 +60,8 @@ setup: ## Install dependencies and setup virtual environment
 	python3 -m venv venv
 	. venv/bin/activate && pip install --upgrade pip
 	. venv/bin/activate && pip install -r requirements.txt
+	@echo "$(BLUE)Installing Playwright browser binaries...$(NC)"
+	. venv/bin/activate && playwright install
 	@echo "$(GREEN)✓ Setup complete!$(NC)"
 	@echo "Activate with: source venv/bin/activate"
 
@@ -62,6 +74,19 @@ clean: ## Remove all build, test, and cache artifacts
 	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name ".coverage" -delete
 	@echo "$(GREEN)✓ Cleanup complete!$(NC)"
+
+# Web Server (Flask UI)
+web-start: ## Start Flask server for Amazon cookie capture
+	@echo "$(BLUE)Starting Flask web server...$(NC)"
+	@echo "$(GREEN)Navigate to: http://localhost:5001/setup$(NC)"
+	@echo "$(YELLOW)Press Ctrl+C to stop the server$(NC)"
+	@echo ""
+	. venv/bin/activate && python source/web/app.py
+
+web-stop: ## Stop Flask server gracefully
+	@echo "$(BLUE)Stopping Flask server...$(NC)"
+	@pkill -f "python source/web/app.py" 2>/dev/null || true
+	@echo "$(GREEN)✓ Server stopped!$(NC)"
 
 # Authentication & Configuration
 auth: ## Authenticate with Hue Bridge (press button when prompted)
@@ -81,19 +106,46 @@ auth-ip: ## Authenticate with manual Bridge IP
 	@echo ""
 	. venv/bin/activate && python source/collectors/hue_auth.py --bridge-ip $(HUE_IP)
 
-# Discovery & Collection
-discover: ## List all temperature sensors
-	@echo "$(BLUE)Discovering temperature sensors...$(NC)"
+# Discovery & Collection (Hue)
+discover: ## List all Hue temperature sensors
+	@echo "$(BLUE)Discovering Hue temperature sensors...$(NC)"
 	. venv/bin/activate && python source/collectors/hue_collector.py --discover
 
-collect-once: ## Collect readings once and store in database
-	@echo "$(BLUE)Running single collection cycle...$(NC)"
+collect-once: ## Collect Hue readings once and store in database
+	@echo "$(BLUE)Running single Hue collection cycle...$(NC)"
 	. venv/bin/activate && python source/collectors/hue_collector.py --collect-once
 
-continuous: ## Run continuous collection (Ctrl+C to stop)
-	@echo "$(BLUE)Starting continuous collection mode...$(NC)"
+continuous: ## Run continuous Hue collection (Ctrl+C to stop)
+	@echo "$(BLUE)Starting continuous Hue collection mode...$(NC)"
 	@echo "$(YELLOW)Press Ctrl+C to stop$(NC)"
 	. venv/bin/activate && python source/collectors/hue_collector.py --continuous
+
+# Amazon AQM
+aqm-discover: ## List all Amazon Air Quality Monitor devices
+	@echo "$(BLUE)Discovering Amazon AQM devices...$(NC)"
+	. venv/bin/activate && python source/collectors/amazon_aqm_collector_main.py --discover
+
+aqm-collect: ## Collect AQM readings once and store in database
+	@echo "$(BLUE)Running single AQM collection cycle...$(NC)"
+	. venv/bin/activate && python source/collectors/amazon_aqm_collector_main.py --collect-once
+
+aqm-continuous: ## Run continuous AQM collection (5-min intervals)
+	@echo "$(BLUE)Starting continuous AQM collection mode (5-minute intervals)...$(NC)"
+	@echo "$(YELLOW)Press Ctrl+C to stop$(NC)"
+	. venv/bin/activate && python source/collectors/amazon_aqm_collector_main.py --continuous
+
+aqm-test: ## Test AQM integration (discover + collect + verify DB)
+	@echo "$(BLUE)Running Amazon AQM integration test...$(NC)"
+	@echo ""
+	@echo "$(BLUE)1. Discovering AQM devices...$(NC)"
+	@. venv/bin/activate && python source/collectors/amazon_aqm_collector_main.py --discover
+	@echo ""
+	@echo "$(BLUE)2. Collecting readings...$(NC)"
+	@. venv/bin/activate && python source/collectors/amazon_aqm_collector_main.py --collect-once
+	@echo ""
+	@echo "$(BLUE)3. Verifying database...$(NC)"
+	@. venv/bin/activate && python3 -c "import sqlite3; conn = sqlite3.connect('data/readings.db'); cursor = conn.execute(\"SELECT COUNT(*) FROM readings WHERE device_type='alexa_aqm'\"); count = cursor.fetchone()[0]; cursor2 = conn.execute(\"SELECT device_id, temperature_celsius, humidity_percent, pm25_ugm3, voc_ppb, co_ppm, iaq_score FROM readings WHERE device_type='alexa_aqm' ORDER BY timestamp DESC LIMIT 1\"); latest = cursor2.fetchone(); print(f'Total AQM readings in database: {count}'); print(f'\033[0;32m✓ Test passed! Data was stored successfully.\033[0m' if count > 0 else '\033[0;31m✗ Test failed! No data in database.\033[0m'); print(f'Latest reading: {latest}' if latest else 'No readings found'); conn.close()"
+
 
 # Database operations
 db-reset: ## Delete and recreate empty database
@@ -116,11 +168,11 @@ db-query: ## Run custom SQL query (usage: make db-query SQL="SELECT * FROM readi
 
 db-view: ## View recent readings in database
 	@echo "$(BLUE)Recent readings in database:$(NC)"
-	. venv/bin/activate && python3 -c "import sqlite3; conn = sqlite3.connect('data/readings.db'); cursor = conn.execute('SELECT device_id, temperature_celsius, timestamp FROM readings ORDER BY timestamp DESC LIMIT 20'); print(f\"{'Device ID':<50} {'Temp (°C)':<12} {'Timestamp':<30}\"); print('-' * 92); [print(f\"{d:<50} {t:<12.2f} {ts:<30}\") for d, t, ts in cursor.fetchall()]; conn.close()"
+	. venv/bin/activate && python3 -c "import sqlite3; conn = sqlite3.connect('data/readings.db'); cursor = conn.execute('SELECT device_id, device_type, temperature_celsius, humidity_percent, pm25_ugm3, voc_ppb, co_ppm, iaq_score, timestamp FROM readings ORDER BY timestamp DESC LIMIT 20'); print(f\"{'Device ID':<40} {'Type':<12} {'Temp':<8} {'Hum%':<8} {'PM2.5':<8} {'VOC':<8} {'CO':<8} {'IAQ':<8} {'Timestamp':<20}\"); print('-' * 150); [print(f\"{d:<40} {dt:<12} {t:<8.1f} {h if h else '-':<8} {p if p else '-':<8} {v if v else '-':<8} {c if c else '-':<8} {i if i else '-':<8} {ts[:19]:<20}\") for d, dt, t, h, p, v, c, i, ts in cursor.fetchall()]; conn.close()"
 
 db-stats: ## Show database statistics
 	@echo "$(BLUE)Database Statistics:$(NC)"
-	. venv/bin/activate && python3 -c "import sqlite3; conn = sqlite3.connect('data/readings.db'); cursor = conn.execute('SELECT COUNT(*) FROM readings'); print(f'Total readings: {cursor.fetchone()[0]}\n'); cursor = conn.execute('SELECT device_id, COUNT(*) as count, MIN(temperature_celsius) as min_temp, MAX(temperature_celsius) as max_temp, AVG(temperature_celsius) as avg_temp FROM readings GROUP BY device_id ORDER BY device_id'); print(f\"{'Device ID':<50} {'Count':<8} {'Min':<8} {'Max':<8} {'Avg':<8}\"); print('-' * 82); [print(f\"{d:<50} {c:<8} {mi:<8.1f} {ma:<8.1f} {a:<8.1f}\") for d, c, mi, ma, a in cursor.fetchall()]; conn.close()"
+	. venv/bin/activate && python3 -c "import sqlite3; conn = sqlite3.connect('data/readings.db'); cursor = conn.execute('SELECT COUNT(*) FROM readings'); print(f'Total readings: {cursor.fetchone()[0]}\n'); cursor = conn.execute('SELECT device_type, COUNT(*) FROM readings GROUP BY device_type'); print('Readings by device type:'); [print(f'  {dt}: {c}') for dt, c in cursor.fetchall()]; print(); cursor = conn.execute('SELECT device_id, device_type, COUNT(*) as count, MIN(temperature_celsius) as min_temp, MAX(temperature_celsius) as max_temp, AVG(temperature_celsius) as avg_temp FROM readings GROUP BY device_id, device_type ORDER BY device_id'); print(f\"{'Device ID':<45} {'Type':<12} {'Count':<8} {'Min°C':<8} {'Max°C':<8} {'Avg°C':<8}\"); print('-' * 95); [print(f\"{d:<45} {dt:<12} {c:<8} {mi:<8.1f} {ma:<8.1f} {a:<8.1f}\") for d, dt, c, mi, ma, a in cursor.fetchall()]; conn.close()"
 
 # Logs
 logs: ## Show recent log entries

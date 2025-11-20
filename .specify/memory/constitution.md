@@ -1,11 +1,11 @@
 <!--
 Sync Impact Report
-Version change: 1.0.0 → 1.1.0 (MINOR: full rewrite to project-specific principles)
-Modified principles: All (template → project rules)
-Added sections: Scope, Data Requirements, Technical Constraints, Sprint Structure, Development Workflow, Success Criteria, API & Auth Notes, Non-Functional Requirements
+Version change: 1.1.0 → 1.2.0 (MINOR: added Amazon Alexa Air Quality Monitor integration)
+Modified principles: None
+Added sections: Amazon Alexa Air Quality Monitor in Scope, air quality data requirements, Alexa API authentication notes
 Removed sections: None
-Templates requiring updates: plan-template.md ✅, spec-template.md ✅, tasks-template.md ✅
-Follow-up TODOs: None
+Templates requiring updates: plan-template.md ⚠ pending, spec-template.md ⚠ pending, tasks-template.md ⚠ pending
+Follow-up TODOs: Create spec 004-alexa-air-quality-integration sprint folder
 -->
 
 # Home Temperature Monitoring Constitution
@@ -32,6 +32,7 @@ Rationale: Ensures collected data is usable for statistical analysis and advocac
 
 ### In Scope
 - Collect temperature readings from Philips Hue sensors
+- Collect air quality and temperature readings from Amazon Alexa Air Quality Monitor
 - Collect temperature readings from Google Nest devices
 - Collect outside temperature from aggregate weather API services
 - Store data in SQLite database for efficient querying and analysis
@@ -52,13 +53,15 @@ Rationale: Ensures collected data is usable for statistical analysis and advocac
 - Device ID: Composite format `source_type:device_id` (e.g., `hue:sensor_abc123`)
 - Temperature: Celsius (standardized, metric only)
 - Location: Room/zone identifier (or "outside" for weather data)
-- Device Type: Hue sensor, Nest thermostat, or weather API
+- Device Type: Hue sensor, Alexa air quality monitor, Nest thermostat, or weather API
 - Indoor temp range: 0°C to 40°C (flag anomalies)
 - Outside temp range: -40°C to 50°C
+- Air quality metrics: PM2.5, PM10, VOC (volatile organic compounds), CO2 equivalent (ppm)
+- Air quality index: Standardized AQI (0-500 scale) or device-specific rating
 - Duplicate timestamp detection per device
 - Required field presence validation
 - Weather conditions index: standardized categorical values (see project docs)
-- Optional metadata: humidity, battery, signal, thermostat mode/state, day/night indicator, raw API response
+- Optional metadata: humidity, battery, signal, thermostat mode/state, day/night indicator, air quality rating/category, raw API response
 
 ## Technical Constraints
 
@@ -87,7 +90,8 @@ Rationale: Ensures collected data is usable for statistical analysis and advocac
 
 ## Success Criteria
 
-- Temperature data collected from both Philips Hue and Google Nest
+- Temperature data collected from Philips Hue, Amazon Alexa Air Quality Monitor, and Google Nest
+- Air quality metrics (PM2.5, PM10, VOC, CO2e) collected from Alexa devices
 - Data stored in consistent, analysis-ready format
 - Collection runs automatically on schedule
 - System recovers gracefully from temporary failures
@@ -96,6 +100,7 @@ Rationale: Ensures collected data is usable for statistical analysis and advocac
 ## API & Authentication Notes
 
 - Philips Hue: Local network access, Bridge button press + API key, local API preferred
+- Amazon Alexa: Login with Amazon (LWA) OAuth 2.0, Alexa Smart Home Skill API or Smart Properties API, device discovery via Alexa app, may require Amazon Developer account, cloud-based API
 - Google Nest: Google Cloud project, OAuth 2.0, SDM API, rate limits, $5 one-time fee
 
 ## Non-Functional Requirements
@@ -113,4 +118,4 @@ Rationale: Ensures collected data is usable for statistical analysis and advocac
 - Versioning: MAJOR for principle removals/redefinitions, MINOR for new principles/sections, PATCH for clarifications/typos.
 - Compliance review at each sprint retrospective.
 
-**Version**: 1.1.0 | **Ratified**: 2025-11-18 | **Last Amended**: 2025-11-18
+**Version**: 1.2.0 | **Ratified**: 2025-11-18 | **Last Amended**: 2025-11-19

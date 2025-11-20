@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Amazon Air Quality Monitor Setup</h2>
+    <p>To integrate your Amazon Smart Air Quality Monitor, we need to capture authentication cookies. This process
+        involves logging into your Amazon account in a secure browser window.</p>
+
+    <div style="margin-top: 2rem;">
+        <button id="connectBtn" onclick="startLogin()">Connect Amazon Account</button>
+        <div id="loading" class="loading">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spinner"></div>
+                <span>Waiting for login to complete... Check the opened browser window.</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="statusMessage" class="status"></div>
+</div>
+
+<style>
+    .spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #0071e3;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .status.success {
+        display: block !important;
+        background-color: #d4edda;
+        color: #155724;
+        border-left: 4px solid #28a745;
+    }
+
+    .status.error {
+        display: block !important;
+        background-color: #f8d7da;
+        color: #721c24;
+        border-left: 4px solid #dc3545;
+    }
+
+    .cookie-info {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #e7f3ff;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .success-icon {
+        display: inline-block;
+        margin-right: 8px;
+        font-size: 1.2rem;
+    }
+</style>
+
+<script>
+    async function startLogin() {
+        const btn = document.getElementById('connectBtn');
+        const loading = document.getElementById('loading');
+        const status = document.getElementById('statusMessage');
+
+        btn.disabled = true;
+        loading.style.display = 'block';
+        status.style.display = 'none';
+        status.className = 'status';
+        status.innerHTML = '';
+
+        try {
+            const response = await fetch('/api/amazon/login', {
+                method: 'POST'
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                // Success - show detailed message
+                status.innerHTML = `
+                    <div>
+                        <span class="success-icon">✅</span>
+                        <strong>Success!</strong> ${data.message}
+                    </div>
+                    <div class="cookie-info">
+                        <strong>Cookies saved:</strong> ${data.cookies_count} authentication cookies<br>
+                        <strong>Status:</strong> Amazon account connected successfully<br>
+                        <strong>Next step:</strong> Your Amazon Air Quality Monitor is now configured
+                    </div>
+                `;
+                status.classList.add('success');
+
+                // Disable button after success
+                btn.textContent = 'Connected ✓';
+                btn.style.backgroundColor = '#28a745';
+            } else {
+                status.innerHTML = `
+                    <div>
+                        <span class="success-icon">❌</span>
+                        <strong>Error:</strong> ${data.message}
+                    </div>
+                `;
+                status.classList.add('error');
+                btn.disabled = false;
+            }
+        } catch (error) {
+            status.innerHTML = `
+                <div>
+                    <span class="success-icon">❌</span>
+                    <strong>Network error:</strong> ${error.message}
+                </div>
+            `;
+            status.classList.add('error');
+            btn.disabled = false;
+        } finally {
+            loading.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

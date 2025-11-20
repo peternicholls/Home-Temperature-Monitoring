@@ -28,7 +28,6 @@ Python 3.11+: Follow standard conventions
 - 003-system-reliability: Added Python 3.11+ + sqlite3 (stdlib), phue (Hue Bridge API), PyYAML (config), logging (stdlib with RotatingFileHandler)
 - 002-hue-integration: Added Python 3.11+
 
-- 001-project-foundation: Added Python 3.11+ + PyYAML (config), SQLite3 (stdlib, database), typing (stdlib, type hints)
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

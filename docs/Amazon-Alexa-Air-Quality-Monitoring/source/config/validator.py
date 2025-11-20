@@ -64,19 +64,6 @@ def validate_secrets(secrets: Any) -> list:
     weather = secrets.get("weather", {})
     if "api_key" in weather and not weather["api_key"]:
         errors.append("weather.api_key must not be empty if present")
-    
-    # Amazon/Alexa validation (cookie-based)
-    amazon_aqm = secrets.get("amazon_aqm", {})
-    if amazon_aqm:
-        cookies = amazon_aqm.get("cookies", {})
-        if not isinstance(cookies, dict):
-            errors.append("amazon_aqm.cookies must be a dictionary")
-        elif cookies:  # If cookies are provided, validate essential ones
-            essential_cookies = ["session-id", "session-token"]
-            for cookie_name in essential_cookies:
-                if cookie_name not in cookies or not cookies[cookie_name]:
-                    errors.append(f"amazon_aqm.cookies.{cookie_name} must be present and non-empty")
-    
     return errors
 
 

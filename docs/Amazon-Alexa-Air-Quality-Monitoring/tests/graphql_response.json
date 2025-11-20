@@ -1,0 +1,22 @@
+{
+  "errors": [
+    {
+      "message": "Unauthenticated call",
+      "path": [
+        "endpoints"
+      ],
+      "extensions": {
+        "errorCode": "FORBIDDEN",
+        "isRetryable": false,
+        "classification": "DataFetchingException"
+      }
+    }
+  ],
+  "data": {
+    "endpoints": null
+  },
+  "extensions": {
+    "requestID": "XX8PW4P3RW5V4GP8NTT0",
+    "duration": 1
+  }
+}
