@@ -51,6 +51,9 @@ class AmazonAQMCollector:
         self.domain = amazon_config.get('domain', 'alexa.amazon.com')
         self.device_serial = amazon_config.get('device_serial')
         
+        logger.debug(f"Configured domain: {self.domain}")
+        logger.debug(f"Amazon config: {amazon_config}")
+        
         # Extract CSRF token from cookies
         self.csrf_token = cookies.get('csrf', '')
         
@@ -66,7 +69,16 @@ class AmazonAQMCollector:
         
         # Add cookies to session
         # Extract domain from self.domain (e.g., alexa.amazon.co.uk -> .amazon.co.uk)
-        cookie_domain = '.' + '.'.join(self.domain.split('.')[-2:])
+        # Handle both amazon.com and amazon.co.uk domains
+        domain_parts = self.domain.split('.')
+        if len(domain_parts) >= 3:
+            # For alexa.amazon.co.uk -> .amazon.co.uk
+            cookie_domain = '.' + '.'.join(domain_parts[-3:])
+        else:
+            # For amazon.com -> .amazon.com
+            cookie_domain = '.' + '.'.join(domain_parts[-2:])
+        
+        logger.debug(f"Setting cookies for domain: {cookie_domain}")
         for name, value in cookies.items():
             self.session.cookies.set(name, value, domain=cookie_domain)
     
@@ -116,7 +128,7 @@ class AmazonAQMCollector:
                 
                 if response.status_code != 200:
                     logger.error(f"GraphQL API returned status {response.status_code}")
-                    logger.debug(f"Response: {response.text[:500]}")
+                    logger.error(f"Response: {response.text[:500]}")
                     
                     if attempt == self.retry_max_attempts:
                         return []
@@ -129,7 +141,27 @@ class AmazonAQMCollector:
                 
                 # Parse JSON response
                 try:
+                    logger.debug(f"Response status: {response.status_code}")
+                    logger.debug(f"Response headers: {dict(response.headers)}")
+                    logger.debug(f"Response text length: {len(response.text)}")
+                    logger.debug(f"Response text preview: {response.text[:200]}")
+                    
                     data = response.json()
+                    logger.debug(f"Parsed data type: {type(data)}")
+                    logger.debug(f"Parsed data: {str(data)[:500]}")
+                    
+                    if data is None:
+                        logger.error("API returned null response")
+                        logger.error(f"Full response text: {response.text}")
+                        
+                        if attempt == self.retry_max_attempts:
+                            return []
+                        
+                        wait_time = self.retry_base_delay * (2 ** (attempt - 1))
+                        logger.info(f"Retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                        continue
+                        
                 except Exception as json_err:
                     logger.error(f"Failed to parse JSON response: {json_err}")
                     logger.debug(f"Response text: {response.text[:500]}")
@@ -373,6 +405,108 @@ class AmazonAQMCollector:
                 errors.append(f"IAQ score out of range: {iaq} (expected 0-100)")
         
         return errors
+    
+    def format_reading_for_db(self, entity_id: str, serial: str, readings: dict, config: dict) -> dict:
+        """
+        Format AQM readings for database insertion.
+        
+        Args:
+            entity_id: Device entity ID
+            serial: Device serial number
+            readings: Raw readings from get_air_quality_readings()
+            config: Configuration dict
+            
+        Returns:
+            dict: Formatted reading ready for database
+        """
+        # Get location from config mapping (e.g., "GAJ123..." -> "Living Room")
+        # Falls back to 'Unknown' if device not in mapping
+        locations = config.get('amazon_aqm', {}).get('device_locations', {})
+        location = locations.get(serial, config.get('amazon_aqm', {}).get('fallback_location', 'Unknown'))
+        
+        # Build device_id in standard format: alexa:serial
+        # This distinguishes AQM devices from Hue sensors (hue:id)
+        device_id = f"alexa:{serial}"
+        
+        # Format reading with all sensor fields
+        # All air quality fields are optional (some devices lack certain sensors)
+        db_reading = {
+            'timestamp': readings['timestamp'],
+            'device_id': device_id,
+            'temperature_celsius': readings.get('temperature_celsius'),  # Required
+            'location': location,
+            'device_type': 'alexa_aqm',
+            'humidity_percent': readings.get('humidity_percent'),  # Optional
+            'pm25_ugm3': readings.get('pm25_ugm3'),  # Particulate matter (optional)
+            'voc_ppb': readings.get('voc_ppb'),  # Volatile organic compounds (optional)
+            'co_ppm': readings.get('co_ppm'),  # Carbon monoxide (optional)
+            'iaq_score': readings.get('iaq_score'),  # Indoor air quality index (optional)
+        }
+        
+        # Optionally include raw API response for debugging/auditing
+        # Disabled by default to save database space
+        if config.get('amazon_aqm', {}).get('collect_raw_response', False):
+            import json
+            db_reading['raw_response'] = json.dumps(readings)
+        
+        return db_reading
+    
+    async def collect_and_store(self, db_manager) -> bool:
+        """
+        Convenience function to collect AQM data and store in database.
+        Handles full workflow: discovery → collection → validation → storage
+        
+        Args:
+            db_manager: DatabaseManager instance
+            
+        Returns:
+            bool: True if at least one reading was stored successfully, False otherwise
+        """
+        try:
+            # Step 1: Discover all AQM devices registered to this account
+            devices = await self.list_devices()
+            
+            if not devices:
+                logger.warning("No Amazon Air Quality Monitors found")
+                return False
+            
+            # Step 2: Collect from each device
+            success_count = 0
+            for device in devices:
+                entity_id = device['entity_id']
+                serial = device['device_serial']
+                
+                # Step 3: Get readings from Phoenix State API
+                readings = await self.get_air_quality_readings(entity_id)
+                
+                if not readings:
+                    logger.error(f"Failed to get readings from {serial}")
+                    continue
+                
+                # Step 4: Validate readings (temp range, non-negative values, etc.)
+                # Validation failures logged but don't block storage
+                errors = self.validate_readings(readings)
+                if errors:
+                    logger.warning(f"Validation errors for {serial}: {errors}")
+                    # Continue anyway - store what we have
+                
+                # Step 5: Format for database insertion (add location, device_id, etc.)
+                db_reading = self.format_reading_for_db(entity_id, serial, readings, self.config)
+                
+                # Step 6: Insert to database (UNIQUE constraint prevents duplicates)
+                if db_manager.insert_temperature_reading(db_reading):
+                    logger.info(f"Stored reading from {serial} ({device.get('friendly_name', 'Unknown')})")
+                    success_count += 1
+                else:
+                    # Duplicate timestamp - expected behavior, not an error
+                    logger.debug(f"Duplicate reading from {serial}, skipped")
+            
+            # Return True if at least one device was successfully stored
+            return success_count > 0
+            
+        except Exception as e:
+            logger.error(f"Error collecting AQM data: {e}", exc_info=True)
+            return False
 
 
 async def collect_amazon_aqm_data(cookies: Dict[str, str], config: dict = {}) -> Optional[Dict[str, Any]]:

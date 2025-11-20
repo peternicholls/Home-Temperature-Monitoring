@@ -168,6 +168,108 @@ def capture_amazon_cookies(domain: str = "amazon.com", secrets_path: str = "conf
     return False
 
 
+def run_amazon_login(domain: str = "amazon.co.uk") -> Optional[Dict[str, str]]:
+    """
+    Launches Playwright to log in to Amazon and retrieve cookies.
+    Used by web interface for cookie capture.
+    
+    Args:
+        domain: Amazon domain (default: amazon.co.uk)
+        
+    Returns:
+        dict: Cookie name/value pairs, or None if failed
+    """
+    capturer = AmazonCookieCapture(domain=domain, headless=False)
+    cookies = capturer.capture_cookies(timeout=300)
+    
+    if cookies:
+        # Save to secrets.yaml
+        capturer.save_to_secrets()
+    
+    return cookies
+
+
+def validate_amazon_cookies(cookies: Dict[str, str]) -> tuple[bool, list[str]]:
+    """
+    Validate Amazon cookie structure and presence of required cookies.
+    
+    Args:
+        cookies: Dictionary of cookie name/value pairs
+        
+    Returns:
+        tuple: (is_valid, list of error messages)
+    """
+    errors = []
+    
+    if not cookies:
+        errors.append("No cookies provided")
+        return False, errors
+    
+    # Check for essential cookies
+    essential_cookies = ['session-id', 'session-token']
+    missing = [c for c in essential_cookies if c not in cookies]
+    
+    if missing:
+        errors.append(f"Missing essential cookies: {', '.join(missing)}")
+    
+    # Check for empty cookie values
+    empty = [name for name, value in cookies.items() if not value or value.strip() == '']
+    if empty:
+        errors.append(f"Empty cookie values: {', '.join(empty)}")
+    
+    # Warn if cookie count is low (expected ~18 cookies)
+    if len(cookies) < 10:
+        errors.append(f"Low cookie count: {len(cookies)} (expected ~18)")
+        logger.warning(f"Only {len(cookies)} cookies found, authentication may fail")
+    
+    is_valid = len(errors) == 0
+    
+    if is_valid:
+        logger.info(f"✅ Cookie validation passed ({len(cookies)} cookies)")
+    else:
+        logger.error(f"❌ Cookie validation failed: {'; '.join(errors)}")
+    
+    return is_valid, errors
+
+
+def check_cookie_expiration(cookies: Dict[str, str]) -> tuple[bool, Optional[str]]:
+    """
+    Check if Amazon cookies are expired (approximate 24-hour window).
+    Note: This is a heuristic check - actual expiration depends on Amazon's policies.
+    
+    Args:
+        cookies: Dictionary of cookie name/value pairs
+        
+    Returns:
+        tuple: (is_expired, warning_message)
+    """
+    import time
+    from datetime import datetime, timedelta
+    
+    # Check for session-id-time cookie (contains expiration timestamp)
+    if 'session-id-time' in cookies:
+        try:
+            session_time_str = cookies['session-id-time'].rstrip('l')  # Remove trailing 'l'
+            session_timestamp = int(session_time_str)
+            session_date = datetime.fromtimestamp(session_timestamp)
+            
+            # Check if session is older than 23 hours (warn before 24-hour expiration)
+            age = datetime.now() - session_date
+            if age > timedelta(hours=23):
+                warning = f"Cookies are {age.seconds // 3600} hours old and may expire soon. Please refresh."
+                logger.warning(warning)
+                return True, warning
+            
+            logger.info(f"Cookies are {age.seconds // 3600} hours old (valid)")
+            return False, None
+            
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Could not parse session-id-time: {e}")
+    
+    # If we can't determine expiration, assume cookies are valid
+    return False, "Cannot determine cookie age - proceeding anyway"
+
+
 # CLI interface for cookie capture
 if __name__ == "__main__":
     import argparse

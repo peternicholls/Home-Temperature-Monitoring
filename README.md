@@ -15,37 +15,164 @@ A Python-based system for collecting and storing temperature readings from multi
 **Status**: Complete  
 **Documentation**: [Hue Integration Quickstart](specs/002-hue-integration/quickstart.md)
 
+### ✅ Amazon Alexa Air Quality Monitor Integration (Sprint 2-3)
+- Cookie-based authentication via web UI
+- Comprehensive air quality monitoring:
+  - Temperature (°C)
+  - Humidity (%)
+  - PM2.5 particulate matter (µg/m³)
+  - VOC - Volatile Organic Compounds (ppb)
+  - CO - Carbon Monoxide (ppm)
+  - IAQ - Indoor Air Quality Score (0-100)
+- GraphQL API for device discovery
+- Phoenix State API for real-time readings
+- Web UI for easy cookie capture at http://localhost:5001/setup
+
+**Status**: Complete  
+**Documentation**: [Amazon AQM Integration Plan](docs/Amazon-Alexa-Air-Quality-Monitoring/amazon-aqm-integration-plan.md)
+
 ### 🔜 Upcoming Features
-- Amazon Alexa Air Quality Monitor Integration (Sprint 2)
-- Google Nest Integration (Sprint 3)
-- Weather API Integration (Sprint 4)
-- Automated Collection Scheduling (Sprint 4)
+- Google Nest Integration (Sprint 4)
+- Weather API Integration (Sprint 5)
+- Automated Collection Scheduling (Sprint 6)
 - Data Analysis & Visualization (Future)
 
 ## Quick Start
 
-### Install Dependencies
+### Prerequisites
+- Python 3.10+
+- Virtual environment activated: `source venv/bin/activate`
+- Dependencies installed: `pip install -r requirements.txt`
+
+### 1. Start the Web Server (for Amazon AQM Setup)
 ```bash
-pip install -r requirements.txt
+# Start Flask server for cookie capture UI
+make web-start
+
+# Or manually:
+python source/web/app.py
+
+# Then navigate to http://localhost:5001/setup
+# Press Ctrl+C to stop the server
 ```
 
-### Authenticate with Hue Bridge
+### 2. Authenticate with Philips Hue Bridge
+The first time you connect, authenticate with your Hue Bridge:
+
 ```bash
-python source/collectors/hue_auth.py
+# Automatic discovery (recommended)
+make auth
+# When prompted, press the physical button on your Hue Bridge
+
+# Or with manual IP:
+make auth-ip HUE_IP=192.168.1.105
 ```
 
-### Collect Temperature Data
+Your Hue Bridge username will be saved to `config/secrets.yaml`.
+
+### 3. Authenticate with Amazon Account (Air Quality Monitor)
+
+**Using Web UI** (Recommended):
+```bash
+# Start the web server
+make web-start
+
+# Open http://localhost:5001/setup in your browser
+# Click "Connect Amazon Account" and log in
+# Cookies will be automatically saved
+
+# Stop the server
+make web-stop
+```
+
+**Using CLI** (Alternative):
+```bash
+python source/collectors/amazon_auth.py --domain amazon.co.uk
+```
+
+Cookies are stored in `config/secrets.yaml` under `amazon_aqm.cookies`.
+
+### 4. Discover Devices
+
+```bash
+# Discover Philips Hue sensors
+make discover
+
+# Discover Amazon AQM devices
+make aqm-discover
+```
+
+### 5. Collect Temperature & Air Quality Data
+
+**Philips Hue**:
 ```bash
 # Single collection
-python source/collectors/hue_collector.py --collect-once
+make collect-once
 
-# Continuous collection (every 5 minutes)
+# Continuous (5-minute intervals, Ctrl+C to stop)
+make continuous
+
+# Or directly:
+python source/collectors/hue_collector.py --collect-once
 python source/collectors/hue_collector.py --continuous
 ```
 
-### Query Data
+**Amazon AQM**:
 ```bash
-sqlite3 data/readings.db "SELECT * FROM readings WHERE device_type='hue_sensor' LIMIT 10;"
+# Single collection
+make aqm-collect
+
+# Continuous (5-minute intervals, Ctrl+C to stop)
+make aqm-continuous
+
+# Test integration (discover + collect + verify)
+make aqm-test
+
+# Or directly:
+python source/collectors/amazon_aqm_collector_main.py --collect-once
+python source/collectors/amazon_aqm_collector_main.py --continuous
+```
+
+### 6. Query Data
+
+```bash
+# View recent readings (all devices)
+make db-view
+
+# View database statistics
+make db-stats
+
+# Query specific data
+make db-query SQL="SELECT device_id, temperature_celsius, timestamp FROM readings WHERE device_type='hue_sensor' LIMIT 10"
+
+# Using sqlite3 directly
+sqlite3 data/readings.db "SELECT device_id, temperature_celsius, humidity_percent FROM readings LIMIT 10;"
+```
+
+### 7. Development Commands
+
+```bash
+# View logs
+make logs
+
+# Follow logs in real-time
+make logs-tail
+
+# Clear logs
+make logs-clear
+
+# Reset database (development only - loses all data)
+make db-reset
+
+# Run tests
+make test
+make test-discover
+make test-full
+```
+
+All commands are documented in the Makefile:
+```bash
+make help
 ```
 
 ## Project Structure
@@ -78,7 +205,113 @@ specs/
 ## Documentation
 - [Project Constitution](docs/project-outliner.md) - Development principles and constraints
 - [Hue Integration Guide](specs/002-hue-integration/quickstart.md) - Complete Hue setup walkthrough
+- [Amazon AQM Integration Guide](specs/004-alexa-aqm-integration/quickstart.md) - Amazon Air Quality Monitor setup
 - [Feature Specifications](specs/) - Detailed feature documentation
+
+## Troubleshooting
+
+### Amazon AQM Issues
+
+**Cookie Authentication Failures**
+- **Problem**: "Invalid or missing cookies" error
+- **Solution**: 
+  1. Start web server: `python source/web/app.py`
+  2. Navigate to http://localhost:5001/setup
+  3. Complete Amazon login flow
+  4. Verify cookies saved in `config/secrets.yaml` under `amazon_aqm.cookies`
+
+**Expired Cookies (24-hour lifespan)**
+- **Problem**: "Unauthenticated call" errors after working previously
+- **Solution**: Re-run web UI setup to refresh cookies (repeat steps above)
+
+**No Devices Found**
+- **Problem**: Device discovery returns empty list
+- **Checks**:
+  - Verify device is online in Alexa app
+  - Ensure device is registered to the same Amazon account used for login
+  - Check device appears at https://alexa.amazon.co.uk/spa/index.html
+  - Confirm `domain` in `config/config.yaml` matches your Amazon region
+
+**Data Collection Failures**
+- **Problem**: No readings returned from device
+- **Checks**:
+  - Device has latest firmware (update via Alexa app)
+  - Sensor capabilities vary by model (all have temp/humidity, some have PM2.5/VOC/CO)
+  - Network connectivity to Amazon services
+  - Check logs with DEBUG level: `--log-level DEBUG` flag
+
+**Database Errors**
+- **Problem**: Duplicate timestamp errors
+- **Explanation**: Expected behavior - UNIQUE constraint prevents duplicate readings
+- **Problem**: Missing columns (co_ppm, iaq_score)
+- **Solution**: Schema auto-migrates on first insert; verify with `sqlite3 data/readings.db ".schema readings"`
+
+**Rate Limiting**
+- **Problem**: API throttling or timeout errors
+- **Solution**: 
+  - Increase `collection_interval` to 300+ seconds (5+ minutes)
+  - Adjust `timeout_seconds` in config (default: 30)
+  - Built-in exponential backoff handles retries automatically
+
+### Hue Integration Issues
+
+**Bridge Discovery Problems**
+- **Problem**: Cannot find Hue Bridge on network
+- **Solution**:
+  1. Ensure bridge is powered on and connected to network
+  2. Check bridge IP address in Hue app
+  3. Manually set `bridge_ip` in `config/config.yaml`
+
+**Authentication Failures**
+- **Problem**: "Link button not pressed" error
+- **Solution**: 
+  1. Press physical button on Hue Bridge
+  2. Run authentication within 30 seconds
+  3. Username will be saved in `config/secrets.yaml`
+
+**No Sensors Found**
+- **Problem**: Motion sensors not discovered
+- **Checks**:
+  - Sensors are paired with bridge (visible in Hue app)
+  - Sensors have fresh batteries
+  - Bridge firmware is up to date
+
+### Database Issues
+
+**Database Locked**
+- **Problem**: "Database is locked" error
+- **Solution**:
+  - Ensure no other processes accessing database
+  - WAL mode enabled by default for concurrent access
+  - Check for stale lock files in `data/`
+
+**Schema Migration Failures**
+- **Problem**: Errors during schema updates
+- **Solution**:
+  1. Backup database: `cp data/readings.db data/readings.db.backup`
+  2. Check current schema: `sqlite3 data/readings.db ".schema"`
+  3. Migration auto-runs on first insert with new columns
+  4. Verify migration: `sqlite3 data/readings.db "PRAGMA table_info(readings);"`
+
+### General Issues
+
+**Configuration Errors**
+- **Problem**: Invalid YAML syntax
+- **Solution**: Validate YAML structure at https://www.yamllint.com/
+- **Problem**: Missing required fields
+- **Solution**: Check `config/config.yaml.example` for complete structure
+
+**Network Connectivity**
+- **Problem**: Timeouts or connection refused
+- **Checks**:
+  - Devices on same network/VLAN as host
+  - Firewall rules allow outbound HTTPS (Amazon APIs)
+  - DNS resolution working (test: `ping alexa.amazon.co.uk`)
+
+**Log Analysis**
+- Enable DEBUG logging: Set `log_level: DEBUG` in `config/config.yaml`
+- Check log files in `logs/` directory
+- Look for patterns: authentication failures, API errors, validation issues
 
 ## Usage
 - Activate virtual environment

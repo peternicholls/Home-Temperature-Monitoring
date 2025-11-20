@@ -53,6 +53,41 @@ collectors:
     collect_battery_level: true
     collect_signal_strength: true
     collect_raw_response: false
+
+  amazon_aqm:
+    enabled: false # Disabled by default (requires cookie auth)
+    domain: "alexa.amazon.co.uk" # UK domain (adjust per region)
+    device_serial: null # Auto-discover if null, or specify: "GAJ23005314600H3"
+    timeout_seconds: 30
+    collection_interval: 300 # 5 minutes (same as Hue)
+    retry_attempts: 3
+    retry_backoff_base: 1.0
+    max_timeout: 120
+
+    # Device mapping
+    device_locations:
+      "GAJ23005314600H3": "Living Room" # Map serial to location
+
+    fallback_location: "Unknown" # If device not in mapping
+
+    # Validation ranges (optional - already in schema)
+    temperature_min: 0.0
+    temperature_max: 40.0
+    humidity_min: 0.0
+    humidity_max: 100.0
+    iaq_min: 0
+    iaq_max: 100
+
+    # What to collect
+    collect_temperature: true
+    collect_humidity: true
+    collect_pm25: true
+    collect_voc: true
+    collect_co: true
+    collect_iaq: true
+    collect_connectivity: false # Don't store as separate field
+    collect_raw_response: false # Save full API response in raw_response column
+
   nest:
     enabled: false
     timeout_seconds: 10

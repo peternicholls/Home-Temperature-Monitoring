@@ -80,7 +80,7 @@ class DatabaseManager:
             required_cols = {
                 'is_anomalous', 'humidity_percent', 'battery_level', 'signal_strength',
                 'thermostat_mode', 'thermostat_state', 'day_night', 'weather_conditions',
-                'raw_response', 'created_at', 'pm25_ugm3', 'voc_ppb', 'co2_ppm'
+                'raw_response', 'created_at', 'pm25_ugm3', 'voc_ppb', 'co_ppm', 'co2_ppm', 'iaq_score'
             }
             
             for col in required_cols - existing_cols:
@@ -108,8 +108,12 @@ class DatabaseManager:
                     self.conn.execute("ALTER TABLE readings ADD COLUMN pm25_ugm3 REAL CHECK(pm25_ugm3 IS NULL OR pm25_ugm3 >= 0)")
                 elif col == 'voc_ppb':
                     self.conn.execute("ALTER TABLE readings ADD COLUMN voc_ppb REAL CHECK(voc_ppb IS NULL OR voc_ppb >= 0)")
+                elif col == 'co_ppm':
+                    self.conn.execute("ALTER TABLE readings ADD COLUMN co_ppm REAL CHECK(co_ppm IS NULL OR co_ppm >= 0)")
                 elif col == 'co2_ppm':
                     self.conn.execute("ALTER TABLE readings ADD COLUMN co2_ppm REAL CHECK(co2_ppm IS NULL OR co2_ppm >= 0)")
+                elif col == 'iaq_score':
+                    self.conn.execute("ALTER TABLE readings ADD COLUMN iaq_score REAL CHECK(iaq_score IS NULL OR (iaq_score >= 0 AND iaq_score <= 100))")
             
             self.conn.commit()
         else:

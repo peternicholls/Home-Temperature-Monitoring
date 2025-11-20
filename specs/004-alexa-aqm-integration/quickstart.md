@@ -12,187 +12,227 @@
 
 ## Setup
 
-### 1. Configure Credentials
+### 1. Configure Amazon AQM
 
-Add Amazon credentials to `config/secrets.yaml`:
+Add Amazon AQM configuration to `config/config.yaml`:
 
 ```yaml
-amazon:
-  email: your-amazon-email@example.com
-  password: your-amazon-password
-  device_id: alexa:YOUR_DEVICE_SERIAL  # Optional, will be discovered if not set
+collectors:
+  amazon_aqm:
+    enabled: true
+    domain: "amazon.co.uk"  # or amazon.com, amazon.de, etc.
+    device_serial: "GAJ23005314600H3"  # Optional, will auto-discover if not set
+    timeout_seconds: 30
+    collection_interval: 300  # 5 minutes
+    retry_attempts: 3
+    retry_backoff_base: 1.0
+    max_timeout: 120
+    
+    # Device location mapping (for database storage)
+    device_locations:
+      "GAJ23005314600H3": "Living Room"
+    
+    # Sensor collection toggles
+    collect_temperature: true
+    collect_humidity: true
+    collect_pm25: true
+    collect_voc: true
+    collect_co: true
+    collect_iaq: true
 ```
 
-### 2. Optional: Home Assistant Fallback
+### 2. Configure Secrets
 
-For fallback support, add Home Assistant credentials:
+Ensure `config/secrets.yaml` exists with Amazon AQM cookies structure:
 
 ```yaml
-home_assistant:
-  url: http://homeassistant.local:8123
-  token: YOUR_LONG_LIVED_ACCESS_TOKEN
+amazon_aqm:
+  cookies:
+    session-id: ""
+    session-token: ""
+    csrf: ""
+    # ... (up to 18 cookies total - will be populated by web UI)
 ```
 
 ## Authentication
 
+Use the web UI to capture Amazon cookies:
+
+```bash
+# Start the web server
+python source/web/app.py
+
+# Navigate to http://localhost:5001/setup
+# Click "Start Amazon Login"
+# Complete the login process in the browser
+# Cookies will be automatically saved to config/secrets.yaml
+```
+
+Programmatic cookie validation:
+
 ```python
-import asyncio
-from source.collectors.amazon_auth import authenticate_amazon
-from source.config.loader import load_secrets
+from source.collectors.amazon_auth import validate_amazon_cookies, check_cookie_expiration
+from source.config.loader import load_config
 
-async def main():
-    secrets = load_secrets()
-    amazon_config = secrets.get('amazon', {})
+config = load_config()
+cookies = config.get('amazon_aqm', {}).get('cookies', {})
+
+# Validate cookie structure
+if validate_amazon_cookies(cookies):
+    print("✅ Cookies are valid")
     
-    # Authenticate
-    login = await authenticate_amazon(
-        amazon_config['email'],
-        amazon_config['password']
-    )
-    
-    if login:
-        print("✅ Authentication successful")
+    # Check expiration (24-hour window)
+    if check_cookie_expiration(cookies):
+        print("✅ Cookies are fresh")
     else:
-        print("❌ Authentication failed")
-
-asyncio.run(main())
+        print("⚠️ Cookies may be expired - re-authenticate via web UI")
+else:
+    print("❌ Invalid cookies - run web UI setup")
 ```
 
 ## Device Access
 
 ```python
 import asyncio
-from source.collectors.amazon_auth import authenticate_amazon
 from source.collectors.amazon_collector import AmazonAQMCollector
-from source.config.loader import load_secrets
+from source.config.loader import load_config
 
 async def main():
-    secrets = load_secrets()
-    amazon_config = secrets.get('amazon', {})
+    config = load_config()
     
-    # Authenticate
-    login = await authenticate_amazon(
-        amazon_config['email'],
-        amazon_config['password']
-    )
+    # Initialize collector
+    collector = AmazonAQMCollector(config)
     
-    if not login:
-        print("Authentication failed")
-        return
-    
-    # List devices
-    collector = AmazonAQMCollector(login)
+    # List all AQM devices
     devices = await collector.list_devices()
     
     print(f"Found {len(devices)} air quality monitor(s):")
     for device in devices:
-        print(f"  - {device['name']} ({device['device_id']})")
-        print(f"    Status: {device['accessibility_status']}")
+        print(f"\n  Device: {device['name']}")
+        print(f"    Serial: {device['serial_number']}")
+        print(f"    Entity ID: {device['entity_id']}")
+        print(f"    Model: {device.get('model_name', 'Unknown')}")
 
 asyncio.run(main())
 ```
 
 ## Data Retrieval
 
+### Method 1: Using collect_and_store() - Recommended
+
 ```python
 import asyncio
-from source.collectors.amazon_auth import authenticate_amazon
-from source.collectors.amazon_collector import collect_amazon_aqm_data
+from source.collectors.amazon_collector import AmazonAQMCollector
 from source.storage.manager import DatabaseManager
-from source.config.loader import load_secrets, load_config
-from datetime import datetime
+from source.config.loader import load_config
+from source.collectors.amazon_auth import validate_amazon_cookies
 
 async def main():
-    secrets = load_secrets()
     config = load_config()
-    amazon_config = secrets.get('amazon', {})
     
-    # Authenticate
-    login = await authenticate_amazon(
-        amazon_config['email'],
-        amazon_config['password'],
-        config
-    )
-    
-    if not login:
-        print("Authentication failed")
+    # Validate cookies before starting
+    cookies = config.get('amazon_aqm', {}).get('cookies', {})
+    if not validate_amazon_cookies(cookies):
+        print("❌ Invalid or missing Amazon cookies - run web UI setup first")
         return
     
-    # Get device ID from config or discover
-    device_id = amazon_config.get('device_id')
-    if not device_id:
-        from source.collectors.amazon_collector import AmazonAQMCollector
-        collector = AmazonAQMCollector(login, config)
-        devices = await collector.list_devices()
-        if devices:
-            device_id = devices[0]['device_id']
-        else:
-            print("No devices found")
-            return
+    # Initialize collector and database
+    collector = AmazonAQMCollector(config)
+    db = DatabaseManager(config=config)
     
-    # Collect data
-    readings = await collect_amazon_aqm_data(login, device_id, config)
-    
-    if readings:
-        print(f"✅ Collected readings:")
-        print(f"  Temperature: {readings.get('temperature_celsius')}°C")
-        print(f"  Humidity: {readings.get('humidity_percent')}%")
+    try:
+        # Collect and store in one call - handles discovery, collection, validation, and storage
+        success = await collector.collect_and_store(db)
         
-        if 'pm25_ugm3' in readings:
-            print(f"  PM2.5: {readings['pm25_ugm3']} µg/m³")
-        if 'voc_ppb' in readings:
-            print(f"  VOC: {readings['voc_ppb']} ppb")
-        if 'co2_ppm' in readings:
-            print(f"  CO2: {readings['co2_ppm']} ppm")
-        
-        # Store in database
-        db = DatabaseManager(config=config)
-        reading_record = {
-            'timestamp': readings['timestamp'],
-            'device_id': readings['device_id'],
-            'temperature_celsius': readings['temperature_celsius'],
-            'humidity_percent': readings.get('humidity_percent'),
-            'pm25_ugm3': readings.get('pm25_ugm3'),
-            'voc_ppb': readings.get('voc_ppb'),
-            'co2_ppm': readings.get('co2_ppm'),
-            'location': 'unknown',  # Update based on your setup
-            'device_type': 'alexa_aqm'
-        }
-        
-        success = db.insert_temperature_reading(reading_record)
         if success:
-            print("✅ Readings stored in database")
+            print("✅ Data collected and stored successfully")
         else:
-            print("⚠️ Duplicate or storage error")
-        
+            print("❌ Collection or storage failed - check logs")
+    finally:
         db.close()
-    else:
-        print("❌ Failed to retrieve readings")
 
 asyncio.run(main())
 ```
 
-## Home Assistant Fallback
-
-If Amazon authentication fails, use Home Assistant fallback:
+### Method 2: Manual Collection with format_reading_for_db()
 
 ```python
-from source.collectors.ha_fallback import try_home_assistant_fallback
-from source.config.loader import load_secrets
+import asyncio
+from source.collectors.amazon_collector import AmazonAQMCollector
+from source.storage.manager import DatabaseManager
+from source.config.loader import load_config
 
-secrets = load_secrets()
-ha_config = secrets.get('home_assistant', {})
+async def main():
+    config = load_config()
+    
+    # Initialize collector
+    collector = AmazonAQMCollector(config)
+    
+    # Discover devices
+    devices = await collector.list_devices()
+    if not devices:
+        print("❌ No devices found")
+        return
+    
+    device = devices[0]
+    print(f"Found device: {device['name']} ({device['serial_number']})")
+    
+    # Collect readings
+    readings = await collector.get_air_quality_readings(
+        entity_id=device['entity_id'],
+        serial_number=device['serial_number']
+    )
+    
+    if not readings:
+        print("❌ Failed to collect readings")
+        return
+    
+    print(f"✅ Collected {len(readings)} sensor readings:")
+    print(f"  Temperature: {readings.get(4, {}).get('value')}°C")
+    print(f"  Humidity: {readings.get(5, {}).get('value')}%")
+    print(f"  PM2.5: {readings.get(6, {}).get('value')} µg/m³")
+    print(f"  VOC: {readings.get(7, {}).get('value')} ppb")
+    print(f"  CO: {readings.get(8, {}).get('value')} ppm")
+    print(f"  IAQ Score: {readings.get(9, {}).get('value')}")
+    
+    # Format for database insertion
+    reading_record = collector.format_reading_for_db(
+        readings=readings,
+        serial_number=device['serial_number'],
+        entity_id=device['entity_id']
+    )
+    
+    if not reading_record:
+        print("❌ Failed to format readings")
+        return
+    
+    # Store in database
+    db = DatabaseManager(config=config)
+    try:
+        success = db.insert_temperature_reading(reading_record)
+        if success:
+            print("✅ Readings stored in database")
+            print(f"  Device: {reading_record['device_id']}")
+            print(f"  Location: {reading_record.get('location', 'unknown')}")
+        else:
+            print("⚠️ Duplicate reading or storage error")
+    finally:
+        db.close()
 
-readings = try_home_assistant_fallback(
-    ha_url=ha_config['url'],
-    ha_token=ha_config['token'],
-    device_name='Air Quality Monitor'  # Optional
-)
+asyncio.run(main())
+```
 
-if readings:
-    print(f"✅ Fallback successful: {readings}")
-else:
-    print("❌ Fallback failed")
+### Method 3: Using the Main Script (Production)
+
+```bash
+# Single collection run
+python source/collectors/amazon_aqm_collector_main.py --collect-once
+
+# Continuous collection (5-minute intervals)
+python source/collectors/amazon_aqm_collector_main.py --continuous
+
+# Discover devices
+python source/collectors/amazon_aqm_collector_main.py --discover
 ```
 
 ## Testing
@@ -200,40 +240,90 @@ else:
 Run unit tests:
 
 ```bash
-pytest tests/test_amazon_collector.py -v
+pytest tests/test_amazon_aqm.py -v
 ```
 
 Run with coverage:
 
 ```bash
-pytest tests/test_amazon_collector.py --cov=source/collectors --cov-report=html
+pytest tests/test_amazon_aqm.py --cov=source/collectors --cov-report=html
+```
+
+Manual testing script:
+
+```python
+import asyncio
+from source.collectors.amazon_aqm_collector_main import discover_devices, collect_once
+
+async def main():
+    # Test device discovery
+    print("Testing device discovery...")
+    await discover_devices()
+    
+    # Test single collection
+    print("\nTesting data collection...")
+    await collect_once()
+
+asyncio.run(main())
 ```
 
 ## Troubleshooting
 
 ### Authentication Issues
-- Verify email and password in `config/secrets.yaml`
-- Check logs for error details
-- Ensure network connectivity to Amazon services
-- Try Home Assistant fallback if available
+- **Error: Invalid or missing cookies**
+  - Solution: Run web UI setup at http://localhost:5001/setup
+  - Verify `config/secrets.yaml` has populated `amazon_aqm.cookies` section
+  - Check cookies have `session-id` and `session-token` at minimum
+
+- **Error: Unauthenticated call**
+  - Solution: Cookies may be expired (24-hour lifespan)
+  - Re-run web UI setup to refresh cookies
+  - Check cookie domain matches your Amazon domain (.amazon.co.uk, .amazon.com, etc.)
 
 ### Device Access Issues
-- Ensure device is online and accessible
-- Check device ID format (must be `alexa:device_serial`)
-- Verify Alexa app shows device as connected
+- **No devices found**
+  - Ensure device is online and accessible in Alexa app
+  - Verify device is registered to the same Amazon account
+  - Check device appears in https://alexa.amazon.co.uk/spa/index.html
+
+- **Device ID format error**
+  - Device ID should be UUID format (e.g., `e1234567-89ab-cdef-0123-456789abcdef`)
+  - Serial should be in format `GAJ...` (15 characters)
 
 ### Data Retrieval Issues
-- Check device has latest firmware
-- Verify sensor capabilities (not all devices have PM2.5/VOC/CO2)
-- Review logs for API errors or timeouts
+- **No readings returned**
+  - Check device has latest firmware in Alexa app
+  - Verify sensor capabilities (all AQMs have temp/humidity, some have PM2.5/VOC/CO)
+  - Review logs with `--log-level DEBUG` for API response details
+
+- **Validation errors**
+  - Temperature out of range: Check device is functioning properly
+  - Humidity > 100%: Sensor may need calibration
+  - Negative values: May indicate sensor malfunction
 
 ### Database Issues
-- Ensure SQLite database is initialized
-- Check for duplicate timestamps (UNIQUE constraint)
-- Verify required fields are present
+- **Duplicate timestamp error**
+  - Database has UNIQUE constraint on (device_id, timestamp)
+  - This is expected behavior - prevents duplicate readings
+  - Readings are rounded to nearest second
+
+- **Missing columns (co_ppm, iaq_score)**
+  - Run database migration script
+  - Schema will auto-migrate on first insert if columns missing
+
+### Network/API Issues
+- **Timeout errors**
+  - Increase `timeout_seconds` in config (default: 30)
+  - Check network connectivity to Amazon services
+  - Try increasing `max_timeout` for slower connections
+
+- **Rate limiting**
+  - Amazon may throttle requests if polling too frequently
+  - Recommended: 5-minute intervals (300 seconds)
+  - Exponential backoff is built-in (1s, 2s, 4s delays)
 
 ---
 
-Ready for production use with robust error handling and fallback support.
+Ready for production use with robust error handling and validation.
 
 ````
