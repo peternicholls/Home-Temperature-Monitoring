@@ -8,7 +8,7 @@
 
 ### Purpose
 
-Collect temperature readings from home IoT sensors (Philips Hue and Google Nest) and record them in a suitable format for future statistical analysis.
+Collect temperature and air quality readings from home IoT sensors (Philips Hue, Amazon Alexa Air Quality Monitor, and Google Nest) and record them in a suitable format for future statistical analysis.
 
 **Primary Goal**: Analyze heat retention and dissipation patterns to demonstrate correlation between external conditions (temperature, weather) and indoor heating efficiency. This data will provide objective evidence to the landlord that insulation and energy efficiency improvements are needed.
 
@@ -23,6 +23,7 @@ Collect temperature readings from home IoT sensors (Philips Hue and Google Nest)
 
 ### In Scope
 - ✅ Collecting temperature readings from Philips Hue sensors
+- ✅ Collecting air quality and temperature readings from Amazon Alexa Air Quality Monitor
 - ✅ Collecting temperature readings from Google Nest devices
 - ✅ Collecting outside temperature from aggregate weather API services
 - ✅ Storing data in SQLite database for efficient querying and analysis
@@ -42,15 +43,17 @@ Collect temperature readings from home IoT sensors (Philips Hue and Google Nest)
 | Source | Device Type | Priority | API/Protocol |
 |--------|-------------|----------|--------------|
 | **Philips Hue** | Motion sensors (temperature capability) | High | Hue Bridge API (local/cloud) |
-| **Google Nest** | Thermostats | High | Google Nest API / SDM API || **Weather API** | Outside temperature (aggregate service) | Medium | Weather API service (e.g., OpenWeatherMap, WeatherAPI) |
+| **Amazon Alexa Air Quality Monitor** | Air quality and temperature monitor | High | Alexa Smart Home API / Smart Properties API |
+| **Google Nest** | Thermostats | High | Google Nest API / SDM API |
+| **Weather API** | Outside temperature (aggregate service) | Medium | Weather API service (e.g., OpenWeatherMap, WeatherAPI) |
 ## Data Requirements
 
 ### Minimum Data Points Per Reading
 - **Timestamp**: ISO 8601 format with timezone
-- **Device ID**: Composite format `source_type:device_id` (e.g., `hue:sensor_abc123`, `nest:thermostat_xyz789`, `weather:outside`)
+- **Device ID**: Composite format `source_type:device_id` (e.g., `hue:sensor_abc123`, `alexa:monitor_def456`, `nest:thermostat_xyz789`, `weather:outside`)
 - **Temperature**: Celsius (standardized, metric only)
 - **Location**: Room/zone identifier (or "outside" for weather data)
-- **Device Type**: Hue sensor, Nest thermostat, or weather API
+- **Device Type**: Hue sensor, Alexa air quality monitor, Nest thermostat, or weather API
 
 ### Data Quality Validation
 - **Indoor temperature range**: 0°C to 40°C (readings outside this range flagged as anomalous)
@@ -82,6 +85,8 @@ For outside temperature readings, record weather conditions using consistent cat
 - Signal strength/connectivity status
 - Thermostat mode (heating/cooling/off/away) - critical for cycle analysis
 - Thermostat state (actively heating/cooling vs idle)
+- **Air quality metrics**: PM2.5, PM10, VOC (volatile organic compounds), CO2 equivalent (ppm)
+- **Air quality index**: Standardized AQI (0-500 scale) or device-specific rating
 - **Day/Night indicator** (for outside readings) - based on sunrise/sunset times
 - **Weather conditions** (for outside readings) - standardized index values
 - Raw API response (for debugging)
@@ -141,9 +146,10 @@ All planning documents use templates from `docs/templates/`:
 ### Branch Strategy
 - `main`: Stable, working code
 - `sprint-0-foundation`: Sprint 0 development
-- `sprint-1-hue`: Sprint 1 development  
-- `sprint-2-nest`: Sprint 2 development
-- `sprint-3-automation`: Sprint 3 development
+- `sprint-1-hue`: Sprint 1 development
+- `sprint-2-alexa`: Sprint 2 development
+- `sprint-3-nest`: Sprint 3 development
+- `sprint-4-automation`: Sprint 4 development
 - `sprint-4-quality`: Sprint 4 development
 - `sprint-5-polish`: Sprint 5 development (optional)
 - `hotfix/*`: Quick fixes for broken collection
@@ -282,7 +288,48 @@ Each sprint folder contains:
 
 ---
 
-### Sprint 2: Google Nest Integration
+### Sprint 2: Amazon Alexa Air Quality Monitor Integration
+**Goal**: Collect air quality and temperature data from Amazon Alexa Air Quality Monitor  
+**Duration**: 5-7 days
+
+**Stories**:
+1. **Amazon Developer Account Setup**
+   - Create Amazon Developer account
+   - Configure Login with Amazon (LWA) credentials
+   - Set up Alexa Smart Home Skill or Smart Properties API access
+   - Document authentication requirements
+
+2. **OAuth Authentication Flow**
+   - Implement OAuth 2.0 flow for Alexa API
+   - Handle token storage and refresh
+   - Test authentication with Amazon account
+   - Verify device access permissions
+
+3. **Device Discovery & Enumeration**
+   - Query Alexa devices via Smart Home API
+   - Filter for air quality monitors
+   - Map devices to location names
+   - Store device metadata (ID, name, location, type)
+
+4. **Air Quality & Temperature Data Collection**
+   - Implement air quality metrics collection (PM2.5, PM10, VOC, CO2e)
+   - Extract temperature readings
+   - Extract air quality index/rating
+   - Handle device offline scenarios
+   - Normalize air quality data to standard formats
+
+5. **Unified Data Integration**
+   - Extend database schema for air quality metrics
+   - Merge Alexa data with existing Hue data format
+   - Ensure consistent timestamp format
+   - Add device type/source identifier
+   - Test combined data output
+
+**Deliverables**: Working Alexa collector integrated with air quality and temperature data storage
+
+---
+
+### Sprint 3: Google Nest Integration
 **Goal**: Collect temperature data from Google Nest thermostats  
 **Duration**: 4-6 days
 

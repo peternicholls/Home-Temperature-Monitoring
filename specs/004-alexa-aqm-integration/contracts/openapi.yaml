@@ -1,0 +1,68 @@
+openapi: 3.0.3
+info:
+  title: Alexa Air Quality Monitor API
+  version: 1.0.0
+paths:
+  /authenticate:
+    post:
+      summary: Authenticate with Amazon account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Authentication successful
+        "401":
+          description: Authentication failed
+  /devices:
+    get:
+      summary: List accessible Alexa devices
+      responses:
+        "200":
+          description: List of devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    device_id:
+                      type: string
+                    device_type:
+                      type: string
+                    accessibility_status:
+                      type: string
+  /devices/{device_id}/readings:
+    get:
+      summary: Retrieve air quality readings
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Air quality readings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  temperature:
+                    type: number
+                  humidity:
+                    type: number
+                  timestamp:
+                    type: string
+        "404":
+          description: Device not found or inaccessible

@@ -80,14 +80,14 @@ class DatabaseManager:
             required_cols = {
                 'is_anomalous', 'humidity_percent', 'battery_level', 'signal_strength',
                 'thermostat_mode', 'thermostat_state', 'day_night', 'weather_conditions',
-                'raw_response', 'created_at'
+                'raw_response', 'created_at', 'pm25_ugm3', 'voc_ppb', 'co2_ppm'
             }
             
             for col in required_cols - existing_cols:
                 if col == 'is_anomalous':
                     self.conn.execute("ALTER TABLE readings ADD COLUMN is_anomalous BOOLEAN DEFAULT 0")
                 elif col == 'humidity_percent':
-                    self.conn.execute("ALTER TABLE readings ADD COLUMN humidity_percent REAL")
+                    self.conn.execute("ALTER TABLE readings ADD COLUMN humidity_percent REAL CHECK(humidity_percent IS NULL OR (humidity_percent >= 0 AND humidity_percent <= 100))")
                 elif col == 'battery_level':
                     self.conn.execute("ALTER TABLE readings ADD COLUMN battery_level INTEGER")
                 elif col == 'signal_strength':
@@ -104,6 +104,12 @@ class DatabaseManager:
                     self.conn.execute("ALTER TABLE readings ADD COLUMN raw_response TEXT")
                 elif col == 'created_at':
                     self.conn.execute("ALTER TABLE readings ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP")
+                elif col == 'pm25_ugm3':
+                    self.conn.execute("ALTER TABLE readings ADD COLUMN pm25_ugm3 REAL CHECK(pm25_ugm3 IS NULL OR pm25_ugm3 >= 0)")
+                elif col == 'voc_ppb':
+                    self.conn.execute("ALTER TABLE readings ADD COLUMN voc_ppb REAL CHECK(voc_ppb IS NULL OR voc_ppb >= 0)")
+                elif col == 'co2_ppm':
+                    self.conn.execute("ALTER TABLE readings ADD COLUMN co2_ppm REAL CHECK(co2_ppm IS NULL OR co2_ppm >= 0)")
             
             self.conn.commit()
         else:
@@ -184,6 +190,43 @@ class DatabaseManager:
         if where:
             sql += f" WHERE {where}"
         return self.conn.execute(sql, params).fetchall()
+
+    def validate_required_fields(self, reading: dict) -> list:
+        """
+        Validate that required fields are present in a reading.
+        
+        Args:
+            reading: Dictionary with reading data
+            
+        Returns:
+            list: List of validation error messages (empty if valid)
+        """
+        errors = []
+        required_fields = ['device_id', 'timestamp', 'temperature_celsius', 'location', 'device_type']
+        
+        for field in required_fields:
+            if field not in reading or reading[field] is None or reading[field] == '':
+                errors.append(f"Required field missing or empty: {field}")
+        
+        return errors
+
+    def check_duplicate_timestamp(self, device_id: str, timestamp: str) -> bool:
+        """
+        Check if a reading with the same device_id and timestamp already exists.
+        
+        Args:
+            device_id: Device identifier (composite format)
+            timestamp: ISO 8601 timestamp
+            
+        Returns:
+            bool: True if duplicate exists, False otherwise
+        """
+        cursor = self.conn.execute(
+            "SELECT COUNT(*) FROM readings WHERE device_id = ? AND timestamp = ?",
+            (device_id, timestamp)
+        )
+        count = cursor.fetchone()[0]
+        return count > 0
 
     def __enter__(self):
         """Context manager entry."""

@@ -16,9 +16,10 @@ A Python-based system for collecting and storing temperature readings from multi
 **Documentation**: [Hue Integration Quickstart](specs/002-hue-integration/quickstart.md)
 
 ### 🔜 Upcoming Features
-- Google Nest Integration (Sprint 2)
-- Weather API Integration (Sprint 3)
-- Automated Collection Scheduling (Sprint 3)
+- Amazon Alexa Air Quality Monitor Integration (Sprint 2)
+- Google Nest Integration (Sprint 3)
+- Weather API Integration (Sprint 4)
+- Automated Collection Scheduling (Sprint 4)
 - Data Analysis & Visualization (Future)
 
 ## Quick Start
