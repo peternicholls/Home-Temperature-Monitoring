@@ -3,6 +3,8 @@ import logging
 import sys
 import os
 import yaml
+import re
+from pathlib import Path
 
 # Add the project root to the python path so we can import from source
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -11,6 +13,10 @@ from source.collectors.amazon_auth import run_amazon_login
 from source.config.loader import load_config
 
 app = Flask(__name__)
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -29,6 +35,11 @@ def amazon_login():
         data = request.get_json() or {}
         domain = data.get('domain')
         
+        # Validate domain format (alphanumeric, dots, hyphens only)
+        if domain and not re.match(r'^[a-z0-9.-]+\.[a-z]{2,}$', domain.lower()):
+            logger.warning(f"Invalid domain format requested")
+            return jsonify({"status": "error", "message": "Invalid domain format"}), 400
+        
         if not domain:
             # Try to load from config
             try:
@@ -36,12 +47,17 @@ def amazon_login():
                 domain = config.get('collectors', {}).get('amazon_aqm', {}).get('domain') or \
                         config.get('amazon_aqm', {}).get('domain')
             except Exception as e:
-                logger.warning(f"Could not load config for domain: {e}")
+                logger.warning(f"Could not load config for domain")
                 domain = None
         
         # Default to amazon.co.uk if not found
         if not domain:
             domain = 'amazon.co.uk'
+        
+        # Validate final domain
+        if not re.match(r'^[a-z0-9.-]+\.[a-z]{2,}$', domain.lower()):
+            logger.error(f"Domain validation failed for configured domain")
+            return jsonify({"status": "error", "message": "Configuration error"}), 500
         
         logger.info(f"Starting Amazon login for domain: {domain}")
         
@@ -65,22 +81,30 @@ def amazon_login():
             secrets['amazon_aqm']['cookies'] = cookies
             secrets['amazon_aqm']['domain'] = domain  # Store domain for reference
             
-            # Write back to file
+            # Write back to file with secure permissions
+            secrets_file = Path(secrets_path)
+            secrets_file.parent.mkdir(parents=True, exist_ok=True)
             with open(secrets_path, 'w') as f:
                 yaml.dump(secrets, f, default_flow_style=False)
+            # Set restrictive permissions (owner read/write only)
+            secrets_file.chmod(0o600)
             
-            logger.info(f"Saved {len(cookies)} cookies to {secrets_path} for domain: {domain}")
+            logger.info(f"Saved {len(cookies)} cookies for domain: {domain}")
             return jsonify({
                 "status": "success",
-                "message": f"Login successful! Saved {len(cookies)} cookies for {domain}.",
+                "message": f"Login successful! Saved credentials for {domain}.",
                 "cookies_count": len(cookies),
                 "domain": domain
             })
         else:
             return jsonify({"status": "error", "message": "Login failed or cancelled"}), 400
     except Exception as e:
-        logger.error(f"Error during Amazon login: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        logger.error(f"Error during Amazon login: {type(e).__name__}")
+        return jsonify({"status": "error", "message": "Authentication failed"}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    # Only enable debug mode if explicitly requested via environment variable
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    if debug_mode:
+        logger.warning("⚠️  Flask running in DEBUG mode - DO NOT use in production!")
+    app.run(debug=debug_mode, port=5001)
