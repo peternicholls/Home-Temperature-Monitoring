@@ -75,7 +75,11 @@ class AmazonCookieCapture:
                     return None
                 
                 # Navigate to Alexa SPA to ensure CSRF token is set
-                alexa_domain = self.domain.replace("amazon", "alexa.amazon")
+                # Only transform domain if it's not already in alexa.* format
+                if 'alexa' not in self.domain:
+                    alexa_domain = self.domain.replace("amazon", "alexa.amazon")
+                else:
+                    alexa_domain = self.domain
                 alexa_url = f"https://{alexa_domain}/spa/index.html"
                 logger.info(f"Navigating to Alexa SPA: {alexa_url}")
                 page.goto(alexa_url)

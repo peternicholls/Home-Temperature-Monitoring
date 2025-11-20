@@ -195,43 +195,6 @@ class DatabaseManager:
             sql += f" WHERE {where}"
         return self.conn.execute(sql, params).fetchall()
 
-    def validate_required_fields(self, reading: dict) -> list:
-        """
-        Validate that required fields are present in a reading.
-        
-        Args:
-            reading: Dictionary with reading data
-            
-        Returns:
-            list: List of validation error messages (empty if valid)
-        """
-        errors = []
-        required_fields = ['device_id', 'timestamp', 'temperature_celsius', 'location', 'device_type']
-        
-        for field in required_fields:
-            if field not in reading or reading[field] is None or reading[field] == '':
-                errors.append(f"Required field missing or empty: {field}")
-        
-        return errors
-
-    def check_duplicate_timestamp(self, device_id: str, timestamp: str) -> bool:
-        """
-        Check if a reading with the same device_id and timestamp already exists.
-        
-        Args:
-            device_id: Device identifier (composite format)
-            timestamp: ISO 8601 timestamp
-            
-        Returns:
-            bool: True if duplicate exists, False otherwise
-        """
-        cursor = self.conn.execute(
-            "SELECT COUNT(*) FROM readings WHERE device_id = ? AND timestamp = ?",
-            (device_id, timestamp)
-        )
-        count = cursor.fetchone()[0]
-        return count > 0
-
     def __enter__(self):
         """Context manager entry."""
         return self
