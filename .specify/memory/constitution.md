@@ -1,30 +1,43 @@
 <!--
 Sync Impact Report
-Version change: 1.2.0 → 2.0.0 (MAJOR: Replaced "Quick and Dirty" principle with Test-Driven Development)
-Modified principles: 
-  - Principle I: "Quick and Dirty" → "Test-Driven Development"
-  - Added Principle V: "Research-Driven Development"
-  - Added Principle VI: "Tech Stack Diversity"
-  - Added Principle VII: "Python Virtual Environment Mandatory"
+Version change: 2.0.0 → 2.0.1 (PATCH: Added AI Agent Critical Reminders section at document start)
 Modified sections:
-  - Updated Scope with implementation status (✅, ⏳)
-  - Updated Sprint Structure to reflect actual numbering (001, 002, 003)
-  - Updated Branch Strategy to use `master` and `NNN-short-name` pattern
-  - Enhanced Testing Standards to require TDD, 80% coverage, pytest
-  - Enhanced Sprint Workflow with Research and Test Design phases
-  - Added Development Environment requirements (venv activation mandatory)
-  - Updated Technical Constraints with hardware specs and tech stack reference
-  - Enhanced Definition of Done with TDD requirements and security review
-Added sections: 
-  - Development Environment Setup (Python venv critical reminder)
-  - Performance requirements for tech stack selection
-  - Completed sprints summary
-Removed sections: None
-Templates requiring updates: All templates ✅ already reflect current structure in specs/ folders
-Follow-up TODOs: None - constitution now matches actual project practices
+  - Added "⚠️ Critical Reminders for AI Agents" section immediately after title
+  - Relocated from Governance section to prominent position for visibility
+  - No principle changes, clarification only
+Templates requiring updates: ✅ No template changes required
+Follow-up TODOs: None
 -->
 
 # Home Temperature Monitoring Constitution
+
+## ⚠️ Critical Reminders for AI Agents
+
+**READ THIS FIRST** before any work in this repository:
+
+1. **ALWAYS ACTIVATE PYTHON VENV FIRST**: `source venv/bin/activate` before any Python commands
+   - Verify: `which python` should show `/Users/peternicholls/Dev/HomeTemperatureMonitoring/venv/bin/python`
+   - Running without venv wastes time with dependency errors and test failures
+
+2. **VERIFY TECH STACK OPTIONS**: Review `docs/tech-stack.md` before choosing implementation language
+   - Available: Python, Swift, C/C++, Node.js
+   - Default: Python for rapid development
+   - Consider: Swift/C++ for performance-critical paths (profile first)
+
+3. **TEST-DRIVEN DEVELOPMENT**: Write tests before implementation (not 'quick and dirty' anymore)
+   - Minimum 80% coverage for new code
+   - Tests define behavior, prevent regressions
+   - Framework: pytest with async support and mocking
+
+4. **RESEARCH COMPLEX FEATURES**: Document research in research.md before coding
+   - Required for: OAuth flows, GraphQL APIs, new integrations
+   - Use an iterative approach: investigate → experiment → document → implement
+   - Document all iterations, what was tried, and outcomes
+   - Capture: API investigation, experiments, failed attempts, successful patterns, and any other detailed work
+
+5. **CHECK CONSTITUTION**: Consult this document and `docs/project-outliner.md` before starting work
+   - Verify compliance with principles and constraints
+   - Follow sprint structure and Definition of Done
 
 ## Core Principles
 
@@ -309,11 +322,6 @@ The project is successful when:
 - Any complexity or deviation MUST be justified in sprint documentation (research.md, plan.md)
 - Template adherence verified via checklists in `specs/NNN-name/checklists/`
 
-### Critical Reminders for AI Agents
-1. **ALWAYS activate Python venv first**: `source venv/bin/activate` before any Python commands
-2. **Review tech stack options**: Check `docs/tech-stack.md` before defaulting to Python
-3. **Write tests first**: TDD approach required (tests before implementation)
-4. **Document research**: Complex features require research.md with investigation logs
-5. **Check constitution**: Consult this document and project-outliner.md before starting work
+---
 
-**Version**: 2.0.0 | **Ratified**: 2025-11-18 | **Last Amended**: 2025-11-20
+**Version**: 2.0.1 | **Ratified**: 2025-11-18 | **Last Amended**: 2025-11-20
