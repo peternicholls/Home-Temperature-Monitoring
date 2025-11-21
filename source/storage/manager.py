@@ -142,6 +142,34 @@ class DatabaseManager:
             # Table doesn't exist, create from schema
             self.conn.executescript(SCHEMA_SQL)
             self.conn.commit()
+        
+        # Check if device_registry table exists
+        cursor = self.conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='device_registry'"
+        )
+        device_registry_exists = cursor.fetchone() is not None
+        
+        if not device_registry_exists:
+            # Create device_registry table (new in Sprint 005)
+            logger.info("Creating device_registry table for device naming feature...")
+            self.conn.executescript("""
+                CREATE TABLE IF NOT EXISTS device_registry (
+                    device_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    device_type TEXT NOT NULL,
+                    device_name TEXT,
+                    location TEXT,
+                    unique_id TEXT NOT NULL UNIQUE,
+                    model_info TEXT,
+                    first_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    is_active INTEGER DEFAULT 1
+                );
+                CREATE INDEX IF NOT EXISTS idx_device_unique_id ON device_registry(unique_id);
+                CREATE INDEX IF NOT EXISTS idx_device_type ON device_registry(device_type);
+                CREATE INDEX IF NOT EXISTS idx_device_active ON device_registry(is_active) WHERE is_active = 1;
+            """)
+            self.conn.commit()
+            logger.info("✓ Device registry table created successfully")
 
     def insert_reading(self, reading: dict):
         """

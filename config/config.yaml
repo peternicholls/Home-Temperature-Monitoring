@@ -20,7 +20,7 @@ storage:
 logging:
   level: "INFO"
   enable_file_logging: true
-  log_file_path: "logs/hue_collection.log"
+  log_file_path: "logs/collection.log"
 
   # NEW: Rotation configuration
   max_bytes: 10485760 # 10MB - rotate when file reaches this size
