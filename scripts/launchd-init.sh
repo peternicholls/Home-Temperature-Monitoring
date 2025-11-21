@@ -65,13 +65,19 @@ cat > "$HUE_PLIST" << 'PLIST_EOF'
     
     <key>RunAtLoad</key>
     <false/>
+    
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
 </dict>
 </plist>
 PLIST_EOF
 
 # Replace placeholders in Hue plist
 sed -i '' "s|HUE_SCRIPT_PATH|$SCRIPTS_DIR/collectors-hue-runner.sh|g" "$HUE_PLIST"
-sed -i '' "s|HUE_LOG_PATH|$LOGS_DIR/hue_scheduled.log|g" "$HUE_PLIST"
+sed -i '' "s|HUE_LOG_PATH|$LOGS_DIR/collection.log|g" "$HUE_PLIST"
 
 echo "  ✓ Created: $HUE_PLIST"
 
@@ -101,21 +107,70 @@ cat > "$AMAZON_PLIST" << 'PLIST_EOF'
     
     <key>RunAtLoad</key>
     <false/>
+    
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
 </dict>
 </plist>
 PLIST_EOF
 
 # Replace placeholders in Amazon plist
 sed -i '' "s|AMAZON_SCRIPT_PATH|$SCRIPTS_DIR/collectors-amazon-runner.sh|g" "$AMAZON_PLIST"
-sed -i '' "s|AMAZON_LOG_PATH|$LOGS_DIR/amazon_scheduled.log|g" "$AMAZON_PLIST"
+sed -i '' "s|AMAZON_LOG_PATH|$LOGS_DIR/collection.log|g" "$AMAZON_PLIST"
 
 echo "  ✓ Created: $AMAZON_PLIST"
+
+# Nest agent plist
+NEST_PLIST="$LAUNCHAGENTS_DIR/com.hometemperaturemonitoring.nest.plist"
+echo -e "${BLUE}Creating Nest via Amazon collector agent...${NC}"
+
+cat > "$NEST_PLIST" << 'PLIST_EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.hometemperaturemonitoring.nest</string>
+    
+    <key>Program</key>
+    <string>NEST_SCRIPT_PATH</string>
+    
+    <key>StartInterval</key>
+    <integer>300</integer>
+    
+    <key>StandardOutPath</key>
+    <string>NEST_LOG_PATH</string>
+    
+    <key>StandardErrorPath</key>
+    <string>NEST_LOG_PATH</string>
+    
+    <key>RunAtLoad</key>
+    <false/>
+    
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+</dict>
+</plist>
+PLIST_EOF
+
+# Replace placeholders in Nest plist
+sed -i '' "s|NEST_SCRIPT_PATH|$SCRIPTS_DIR/collectors-nest-runner.sh|g" "$NEST_PLIST"
+sed -i '' "s|NEST_LOG_PATH|$LOGS_DIR/collection.log|g" "$NEST_PLIST"
+
+echo "  ✓ Created: $NEST_PLIST"
 
 # Make scripts executable
 echo ""
 echo -e "${BLUE}Making scripts executable...${NC}"
 chmod +x "$SCRIPTS_DIR/collectors-hue-runner.sh"
 chmod +x "$SCRIPTS_DIR/collectors-amazon-runner.sh"
+chmod +x "$SCRIPTS_DIR/collectors-nest-runner.sh"
 echo "  ✓ Scripts are executable"
 
 echo ""

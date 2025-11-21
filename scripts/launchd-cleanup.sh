@@ -19,6 +19,7 @@ echo ""
 LAUNCHAGENTS_DIR="$HOME/.config/LaunchAgents"
 HUE_PLIST="$LAUNCHAGENTS_DIR/com.hometemperaturemonitoring.hue.plist"
 AMAZON_PLIST="$LAUNCHAGENTS_DIR/com.hometemperaturemonitoring.amazon.plist"
+NEST_PLIST="$LAUNCHAGENTS_DIR/com.hometemperaturemonitoring.nest.plist"
 
 # Unload Hue agent
 echo -e "${BLUE}Unloading Hue collector agent...${NC}"
@@ -36,6 +37,16 @@ if [ -f "$AMAZON_PLIST" ]; then
     launchctl unload "$AMAZON_PLIST" 2>/dev/null || echo "  (Agent not loaded or already unloaded)"
     rm -f "$AMAZON_PLIST"
     echo "  ✓ Removed: $AMAZON_PLIST"
+else
+    echo "  (Not found)"
+fi
+
+# Unload Nest agent
+echo -e "${BLUE}Unloading Nest via Amazon collector agent...${NC}"
+if [ -f "$NEST_PLIST" ]; then
+    launchctl unload "$NEST_PLIST" 2>/dev/null || echo "  (Agent not loaded or already unloaded)"
+    rm -f "$NEST_PLIST"
+    echo "  ✓ Removed: $NEST_PLIST"
 else
     echo "  (Not found)"
 fi

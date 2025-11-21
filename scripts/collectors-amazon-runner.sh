@@ -2,7 +2,7 @@
 # scripts/collectors-amazon-runner.sh
 # Single collection cycle for Amazon AQM collector
 # Runs every 5 minutes via launchd
-# Captures structured JSON logs to amazon_scheduled.log
+# Captures structured JSON logs to combined collection.log
 
 set -e
 
@@ -10,7 +10,7 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV="$PROJECT_ROOT/venv"
 LOG_DIR="$PROJECT_ROOT/logs"
-LOG_FILE="$LOG_DIR/amazon_scheduled.log"
+LOG_FILE="$LOG_DIR/collection.log"
 
 # Create logs directory if needed
 mkdir -p "$LOG_DIR"
