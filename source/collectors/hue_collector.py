@@ -25,6 +25,7 @@ import yaml
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
+from source.utils.retry import retry_with_backoff, TransientError
 
 # Ensure project root is on sys.path so `import source.*` works when running as script
 try:
@@ -233,7 +234,7 @@ def is_temperature_anomalous(temp_celsius: float, config: dict) -> bool:
 
 def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dict, config: dict, cached_sensors_data: Optional[dict] = None) -> Optional[Dict]:
     """
-    Collect a single temperature reading from a sensor.
+    Collect a single temperature reading from a sensor with retry logic.
     
     Args:
         bridge: Connected Bridge object
@@ -244,12 +245,16 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
         
     Returns:
         Reading dictionary or None if sensor is offline/has no data
-        
-    Raises:
-        requests.RequestException: For transient API/network errors (allows retry)
-        Exception: For other errors (no retry)
     """
-    try:
+    @retry_with_backoff(
+        max_attempts=3,
+        base_delay=1.0,
+        backoff_multiplier=2.0,
+        transient_exceptions=(TransientError, requests.RequestException, ConnectionError, TimeoutError),
+        permanent_exceptions=(ValueError, TypeError, KeyError)
+    )
+    def _fetch_sensor_data():
+        """Inner function with retry logic for API calls."""
         # Use cached data if provided, otherwise fetch
         if cached_sensors_data is not None:
             sensor_data = cached_sensors_data.get(sensor_id)
@@ -264,8 +269,14 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
             if api_key and bridge_ip:
                 # Direct API call to specific sensor endpoint
                 start_time = time.time()
-                response = requests.get(f"http://{bridge_ip}/api/{api_key}/sensors/{sensor_id}", timeout=10)
-                response.raise_for_status()  # Raises for HTTP errors - allows retry
+                try:
+                    response = requests.get(f"http://{bridge_ip}/api/{api_key}/sensors/{sensor_id}", timeout=10)
+                    response.raise_for_status()  # Raises for HTTP errors - allows retry
+                except requests.RequestException as e:
+                    # Log endpoint and error for retry event tracking
+                    logger.warning(f"Transient error on endpoint /sensors/{sensor_id}: {type(e).__name__}: {e}")
+                    raise TransientError(f"API call failed: {e}") from e
+                
                 sensor_data = response.json()
                 duration_ms = int((time.time() - start_time) * 1000)
                 
@@ -274,11 +285,22 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
                 logger.debug(f"API metrics: single sensor, {response_size} bytes, {duration_ms}ms")
             else:
                 # Fallback to full config
-                api_data = bridge.get_api()
+                try:
+                    api_data = bridge.get_api()
+                except Exception as e:
+                    logger.warning(f"Transient error on bridge.get_api(): {type(e).__name__}: {e}")
+                    raise TransientError(f"Bridge API call failed: {e}") from e
                 sensor_data = api_data['sensors'][sensor_id]
         
-        # Check if sensor is reachable - intentional skip, no retry
-        if not sensor_data.get('config', {}).get('reachable', False):
+        return sensor_data
+    
+    try:
+        # Fetch sensor data with retry logic
+        sensor_data = _fetch_sensor_data()
+        # sensor_data fetched with retry logic above
+        
+        # Check if sensor is reachable - permanent condition, no retry
+        if not sensor_data or not sensor_data.get('config', {}).get('reachable', False):
             logger.warning(f"Sensor {sensor_info['location']} is offline, skipping")
             return None
         
@@ -322,12 +344,12 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
         
         return reading
         
-    except requests.RequestException as e:
-        # Network/API errors - raise to allow retry
-        logger.debug(f"Transient error collecting from sensor {sensor_info['location']}: {e}")
-        raise
+    except TransientError as e:
+        # Retry exhaustion - log and continue to next sensor
+        logger.error(f"Retry exhausted for sensor {sensor_info['location']}: {e}")
+        return None
     except Exception as e:
-        # Other errors - log and return None (no retry)
+        # Permanent errors or unexpected failures - log and return None
         logger.error(f"Failed to collect from sensor {sensor_info['location']}: {e}")
         return None
 

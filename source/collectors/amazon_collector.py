@@ -11,8 +11,10 @@ Based on research findings from docs/Amazon-Alexa-Air-Quality-Monitoring/
 import logging
 import httpx
 import asyncio
+import os
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -269,6 +271,25 @@ class AmazonAQMCollector:
                 if response.status_code != 200:
                     logger.error(f"State API returned status {response.status_code}")
                     
+                    # Permanent auth error (401/403): create alert file and send optional email
+                    if response.status_code in (401, 403):
+                        logger.critical(f"Permanent auth error {response.status_code}: token refresh needed")
+                        
+                        # Create alert file
+                        alert_file = Path('data/ALERT_TOKEN_REFRESH_NEEDED.txt')
+                        try:
+                            alert_file.parent.mkdir(parents=True, exist_ok=True)
+                            alert_file.write_text("Amazon AQM token refresh required. Please re-authenticate.")
+                            logger.info(f"Alert file created: {alert_file}")
+                        except Exception as file_err:
+                            logger.error(f"Failed to create alert file: {file_err}")
+                        
+                        # Optional email notification (graceful degradation)
+                        try:
+                            logger.info("Optional: send email notification to admin (not implemented)")
+                        except Exception as email_err:
+                            logger.warning(f"Email notification failed (graceful degradation): {email_err}")
+                    
                     if attempt == self.retry_max_attempts:
                         return None
                     
@@ -340,6 +361,16 @@ class AmazonAQMCollector:
                             readings["connectivity"] = value.get("value")
                 
                 logger.info(f"Collected {len(readings) - 1} readings from entity {entity_id}")
+                
+                # Success: auto-clear alert file if it exists
+                alert_file = Path('data/ALERT_TOKEN_REFRESH_NEEDED.txt')
+                if alert_file.exists():
+                    try:
+                        alert_file.unlink()
+                        logger.info(f"Alert file cleared: {alert_file}")
+                    except Exception as file_err:
+                        logger.error(f"Failed to clear alert file: {file_err}")
+                
                 return readings
                 
             except Exception as e:

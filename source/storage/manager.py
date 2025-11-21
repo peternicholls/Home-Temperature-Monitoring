@@ -2,13 +2,16 @@
 """
 Database Manager with WAL Mode and Retry Logic
 
-Sprint 1.1 Enhancement: Context manager support, WAL mode, exponential backoff retry
+Sprint: 005-system-reliability (enhanced)
+Enhancements: Enhanced WAL mode verification, checkpoint configuration, comprehensive logging,
+              @retry_with_backoff integration for resilient database operations
 """
 
 import sqlite3
 import time
 import logging
 from .schema import SCHEMA_SQL
+from source.utils.retry import retry_with_backoff
 
 DB_PATH = "data/readings.db"
 logger = logging.getLogger(__name__)
@@ -53,12 +56,31 @@ class DatabaseManager:
         
         # Enable WAL mode for concurrent read/write
         if self.enable_wal:
-            self.conn.execute("PRAGMA journal_mode=WAL")
-            logger.info("WAL mode enabled for database")
+            try:
+                cursor = self.conn.execute("PRAGMA journal_mode=WAL")
+                actual_mode = cursor.fetchone()[0]
+                
+                if actual_mode.lower() == 'wal':
+                    logger.info(f"✓ WAL mode enabled successfully for database: {self.db_path}")
+                else:
+                    logger.warning(
+                        f"WAL mode requested but database is in {actual_mode} mode. "
+                        f"Continuing with {actual_mode} mode."
+                    )
+            except Exception as e:
+                logger.error(
+                    f"Failed to enable WAL mode: {e}. "
+                    f"Falling back to default journal mode. "
+                    f"This may impact concurrent access performance."
+                )
         
         # Configure WAL checkpoint interval
-        if self.wal_checkpoint_interval > 0:
-            self.conn.execute(f"PRAGMA wal_autocheckpoint={self.wal_checkpoint_interval}")
+        if self.enable_wal and self.wal_checkpoint_interval > 0:
+            try:
+                self.conn.execute(f"PRAGMA wal_autocheckpoint={self.wal_checkpoint_interval}")
+                logger.debug(f"WAL checkpoint interval set to {self.wal_checkpoint_interval} pages")
+            except Exception as e:
+                logger.warning(f"Failed to configure WAL checkpoint interval: {e}")
         
         # Initialize schema
         self.init_schema()
@@ -122,62 +144,79 @@ class DatabaseManager:
             self.conn.commit()
 
     def insert_reading(self, reading: dict):
+        """
+        Insert a reading into the database.
+        
+        Args:
+            reading: Dictionary with reading data
+        
+        Note: For production use, prefer insert_temperature_reading() which has retry logic.
+        """
         keys = ', '.join(reading.keys())
         placeholders = ', '.join(['?' for _ in reading])
         sql = f"INSERT INTO readings ({keys}) VALUES ({placeholders})"
         self.conn.execute(sql, tuple(reading.values()))
         self.conn.commit()
 
+    def _perform_insert(self, reading: dict) -> bool:
+        """
+        Internal method to perform database insert.
+        Wrapped by retry decorator in insert_temperature_reading().
+        
+        Returns:
+            bool: True if insert successful
+            
+        Raises:
+            sqlite3.IntegrityError: For duplicate readings (UNIQUE constraint)
+            sqlite3.OperationalError: For database locked errors (will be retried)
+        """
+        keys = ', '.join(reading.keys())
+        placeholders = ', '.join(['?' for _ in reading])
+        sql = f"INSERT INTO readings ({keys}) VALUES ({placeholders})"
+        self.conn.execute(sql, tuple(reading.values()))
+        self.conn.commit()
+        return True
+
     def insert_temperature_reading(self, reading: dict, max_retries: int = None) -> bool:
         """
         Insert a temperature reading with UNIQUE constraint handling and retry logic.
+        
+        This method uses @retry_with_backoff for transient database lock errors.
         
         Args:
             reading: Dictionary with reading data
             max_retries: Number of retry attempts for database locked errors (uses config if None)
             
         Returns:
-            bool: True if insert successful, False if duplicate or failed
+            bool: True if insert successful, False if duplicate reading
+            
+        Raises:
+            sqlite3.OperationalError: If database remains locked after all retries
         """
         if max_retries is None:
             max_retries = self.retry_max_attempts
         
-        for attempt in range(1, max_retries + 1):
-            try:
-                keys = ', '.join(reading.keys())
-                placeholders = ', '.join(['?' for _ in reading])
-                sql = f"INSERT INTO readings ({keys}) VALUES ({placeholders})"
-                self.conn.execute(sql, tuple(reading.values()))
-                self.conn.commit()
-                
-                if attempt > 1:
-                    logger.info(f"Insert succeeded on retry attempt {attempt}")
-                
-                return True
-                
-            except sqlite3.IntegrityError as e:
-                # Handle UNIQUE constraint violation (duplicate reading)
-                if "UNIQUE constraint failed" in str(e):
-                    logger.debug("Duplicate reading detected, skipping")
-                    return False
-                # Re-raise other integrity errors
-                raise
-                
-            except sqlite3.OperationalError as e:
-                # Handle database locked errors with exponential backoff
-                if "database is locked" in str(e) and attempt < max_retries:
-                    wait_time = self.retry_base_delay * (2 ** (attempt - 1))
-                    logger.warning(
-                        f"Database locked (attempt {attempt}/{max_retries}), "
-                        f"retrying in {wait_time}s..."
-                    )
-                    time.sleep(wait_time)
-                    continue
-                # Re-raise if max retries exceeded
-                logger.error(f"Database operation failed after {attempt} attempts: {e}")
-                raise
+        # Create a retry-wrapped version of _perform_insert
+        @retry_with_backoff(
+            max_attempts=max_retries,
+            base_delay=self.retry_base_delay,
+            backoff_multiplier=2.0,
+            transient_exceptions=(sqlite3.OperationalError,),
+            permanent_exceptions=(sqlite3.IntegrityError,)
+        )
+        def insert_with_retry():
+            return self._perform_insert(reading)
         
-        return False
+        try:
+            return insert_with_retry()
+            
+        except sqlite3.IntegrityError as e:
+            # Handle UNIQUE constraint violation (duplicate reading)
+            if "UNIQUE constraint failed" in str(e):
+                logger.debug("Duplicate reading detected, skipping")
+                return False
+            # Re-raise other integrity errors
+            raise
 
     def insert_sample_reading(self):
         sample = {
@@ -208,4 +247,83 @@ class DatabaseManager:
         """Close database connection."""
         if self.conn:
             self.conn.close()
-            logger.debug("Database connection closed")
+            logger.debug("Database connection closed")    
+    def verify_wal_mode(self) -> bool:
+        """
+        Verify WAL mode is currently enabled.
+        
+        Returns:
+            bool: True if WAL mode is enabled
+        """
+        try:
+            cursor = self.conn.execute("PRAGMA journal_mode")
+            mode = cursor.fetchone()[0]
+            return mode.lower() == 'wal'
+        except Exception as e:
+            logger.error(f"Failed to verify WAL mode: {e}")
+            return False
+    
+    def get_wal_checkpoint_interval(self) -> int:
+        """
+        Get current WAL checkpoint interval.
+        
+        Returns:
+            int: Checkpoint interval in pages, or 0 if not set
+        """
+        try:
+            cursor = self.conn.execute("PRAGMA wal_autocheckpoint")
+            interval = cursor.fetchone()[0]
+            return int(interval) if interval else 0
+        except Exception as e:
+            logger.error(f"Failed to get WAL checkpoint interval: {e}")
+            return 0
+    
+    def test_write_with_rollback(self) -> bool:
+        """
+        Test database write capability with rollback.
+        
+        Returns:
+            bool: True if write successful
+            
+        Raises:
+            PermissionError: If database is not writable
+            Exception: For other database errors
+        """
+        try:
+            # Use a transaction to test write and rollback
+            self.conn.execute("BEGIN TRANSACTION")
+            
+            # Attempt test insert
+            test_data = {
+                "timestamp": "1970-01-01T00:00:00+00:00",
+                "device_id": "health_check:test",
+                "temperature_celsius": 20.0,
+                "location": "test",
+                "device_type": "health_check"
+            }
+            
+            keys = ', '.join(test_data.keys())
+            placeholders = ', '.join(['?' for _ in test_data])
+            sql = f"INSERT INTO readings ({keys}) VALUES ({placeholders})"
+            self.conn.execute(sql, tuple(test_data.values()))
+            
+            # Rollback to avoid polluting data
+            self.conn.execute("ROLLBACK")
+            
+            return True
+            
+        except sqlite3.OperationalError as e:
+            self.conn.execute("ROLLBACK")
+            if "readonly" in str(e).lower() or "permission" in str(e).lower():
+                raise PermissionError(f"Database is not writable: {e}")
+            raise
+        except Exception as e:
+            try:
+                self.conn.execute("ROLLBACK")
+            except:
+                pass
+            raise
+
+
+# Legacy alias for backward compatibility
+StorageManager = DatabaseManager

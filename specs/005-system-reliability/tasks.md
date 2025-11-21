@@ -119,28 +119,28 @@ This project uses:
 
 **Test First - WAL Mode Verification**:
 
-- [ ] T032 [P] [US1] Create tests/test_database_wal.py with test_wal_mode_enabled_on_init
-- [ ] T033 [P] [US1] Create test_wal_checkpoint_interval_configured in tests/test_database_wal.py
-- [ ] T034 [P] [US1] Create test_wal_file_growth_bounded in tests/test_database_wal.py
-- [ ] T035 [P] [US1] Create test_concurrent_reads_during_write in tests/test_database_wal.py
-- [ ] T036 [P] [US1] Create test_concurrent_writes_no_lock_errors in tests/test_database_wal.py
+- [X] T032 [P] [US1] Create tests/test_database_wal.py with test_wal_mode_enabled_on_init
+- [X] T033 [P] [US1] Create test_wal_checkpoint_interval_configured in tests/test_database_wal.py
+- [X] T034 [P] [US1] Create test_wal_file_growth_bounded in tests/test_database_wal.py
+- [X] T035 [P] [US1] Create test_concurrent_reads_during_write in tests/test_database_wal.py
+- [X] T036 [P] [US1] Create test_concurrent_writes_no_lock_errors in tests/test_database_wal.py
 
 **Test First - Database Retry Integration**:
 
-- [ ] T037 [P] [US1] Create tests/test_database_retry.py with test_database_write_retry_on_lock
-- [ ] T038 [P] [US1] Create test_database_retry_exhaustion in tests/test_database_retry.py
-- [ ] T039 [P] [US1] Create test_concurrent_collector_writes in tests/test_database_retry.py
-- [ ] T040 [P] [US1] Create test_retry_event_logging in tests/test_database_retry.py
-- [ ] T041 [US1] Create test_24_hour_continuous_operation in tests/test_database_retry.py (long-running integration test)
+- [X] T037 [P] [US1] Create tests/test_database_retry.py with test_database_write_retry_on_lock
+- [X] T038 [P] [US1] Create test_database_retry_exhaustion in tests/test_database_retry.py
+- [X] T039 [P] [US1] Create test_concurrent_collector_writes in tests/test_database_retry.py
+- [X] T040 [P] [US1] Create test_retry_event_logging in tests/test_database_retry.py
+- [X] T041 [US1] Create test_24_hour_continuous_operation in tests/test_database_retry.py (long-running integration test)
 
 ### Implementation for User Story 1
 
-- [ ] T042 [US1] Enhance source/storage/manager.py with WAL mode verification on init, checkpoint interval configuration, WAL status logging, and graceful fallback if WAL unavailable
-- [ ] T043 [US1] Integrate @retry_with_backoff into source/storage/manager.py database write operations with 3 attempts, exponential backoff, retry event logging, and graceful exhaustion handling
+- [X] T042 [US1] Enhance source/storage/manager.py with WAL mode verification on init, checkpoint interval configuration, WAL status logging, and graceful fallback if WAL unavailable
+- [X] T043 [US1] Integrate @retry_with_backoff into source/storage/manager.py database write operations with 3 attempts, exponential backoff, retry event logging, and graceful exhaustion handling
 
 **Verification**:
 
-- [ ] T044 [US1] Run pytest tests/test_database_wal.py tests/test_database_retry.py and verify all 10 tests pass with 80%+ coverage for database resilience
+- [X] T044 [US1] Run pytest tests/test_database_wal.py tests/test_database_retry.py and verify all 10 tests pass with 80%+ coverage for database resilience
 
 **Checkpoint**: At this point, database resilience should be fully verified and production-ready
 
@@ -156,32 +156,32 @@ This project uses:
 
 **Test First**:
 
-- [ ] T045 [P] [US2] Create tests/test_hue_collector_retry.py with test_hue_network_timeout_retry
-- [ ] T046 [P] [US2] Create test_hue_bridge_unreachable_retry in tests/test_hue_collector_retry.py
-- [ ] T047 [P] [US2] Create test_hue_rate_limit_backoff in tests/test_hue_collector_retry.py
-- [ ] T048 [P] [US2] Create test_hue_permanent_error_no_retry in tests/test_hue_collector_retry.py
-- [ ] T049 [P] [US2] Create test_hue_retry_exhaustion_continues in tests/test_hue_collector_retry.py
+- [X] T045 [P] [US2] Create tests/test_hue_collector_retry.py with test_hue_network_timeout_retry
+- [X] T046 [P] [US2] Create test_hue_bridge_unreachable_retry in tests/test_hue_collector_retry.py
+- [X] T047 [P] [US2] Create test_hue_rate_limit_backoff in tests/test_hue_collector_retry.py
+- [X] T048 [P] [US2] Create test_hue_permanent_error_no_retry in tests/test_hue_collector_retry.py
+- [X] T049 [P] [US2] Create test_hue_retry_exhaustion_continues in tests/test_hue_collector_retry.py
 
 ### Tests for User Story 2 - Amazon AQM Collector Retry
 
 **Test First**:
 
-- [ ] T050 [P] [US2] Create tests/test_amazon_collector_retry.py with test_amazon_network_timeout_retry
-- [ ] T051 [P] [US2] Create test_amazon_transient_auth_error_retry in tests/test_amazon_collector_retry.py
-- [ ] T052 [P] [US2] Create test_amazon_permanent_auth_error_alert in tests/test_amazon_collector_retry.py
-- [ ] T053 [P] [US2] Create test_amazon_alert_file_creation in tests/test_amazon_collector_retry.py
-- [ ] T054 [P] [US2] Create test_amazon_alert_file_cleared_on_success in tests/test_amazon_collector_retry.py
-- [ ] T055 [P] [US2] Create test_amazon_optional_email_notification in tests/test_amazon_collector_retry.py
-- [ ] T056 [P] [US2] Create test_amazon_rate_limit_backoff in tests/test_amazon_collector_retry.py
+- [X] T050 [P] [US2] Create tests/test_amazon_collector_retry.py with test_amazon_network_timeout_retry
+- [X] T051 [P] [US2] Create test_amazon_transient_auth_error_retry in tests/test_amazon_collector_retry.py
+- [X] T052 [P] [US2] Create test_amazon_permanent_auth_error_alert in tests/test_amazon_collector_retry.py
+- [X] T053 [P] [US2] Create test_amazon_alert_file_creation in tests/test_amazon_collector_retry.py
+- [X] T054 [P] [US2] Create test_amazon_alert_file_cleared_on_success in tests/test_amazon_collector_retry.py
+- [X] T055 [P] [US2] Create test_amazon_optional_email_notification in tests/test_amazon_collector_retry.py
+- [X] T056 [P] [US2] Create test_amazon_rate_limit_backoff in tests/test_amazon_collector_retry.py
 
 ### Implementation for User Story 2
 
-- [ ] T057 [US2] Enhance source/collectors/hue_collector.py with @retry_with_backoff on API calls, transient vs permanent error classification, comprehensive retry event logging with endpoint/error details, and continue-to-next-cycle on exhaustion
-- [ ] T058 [US2] Enhance source/collectors/amazon_collector.py with @retry_with_backoff on GraphQL calls, transient auth error retry with token refresh, permanent auth error alert file (data/ALERT_TOKEN_REFRESH_NEEDED.txt), optional email notification (graceful degradation), and auto-clear alert on success
+- [X] T057 [US2] Enhance source/collectors/hue_collector.py with @retry_with_backoff on API calls, transient vs permanent error classification, comprehensive retry event logging with endpoint/error details, and continue-to-next-cycle on exhaustion
+- [X] T058 [US2] Enhance source/collectors/amazon_collector.py with @retry_with_backoff on GraphQL calls, transient auth error retry with token refresh, permanent auth error alert file (data/ALERT_TOKEN_REFRESH_NEEDED.txt), optional email notification (graceful degradation), and auto-clear alert on success
 
 **Verification**:
 
-- [ ] T059 [US2] Run pytest tests/test_hue_collector_retry.py tests/test_amazon_collector_retry.py and verify all 12 tests pass with 80%+ coverage for retry integration
+- [X] T059 [US2] Run pytest tests/test_hue_collector_retry.py tests/test_amazon_collector_retry.py and verify all 12 tests pass with 80%+ coverage for retry integration
 
 **Checkpoint**: At this point, both collectors should have universal retry logic with comprehensive error handling
 
@@ -197,22 +197,22 @@ This project uses:
 
 **Test First**:
 
-- [ ] T060 [P] [US3] Create tests/test_log_rotation.py with test_rotation_at_threshold
-- [ ] T061 [P] [US3] Create test_rotation_maintains_integrity in tests/test_log_rotation.py
-- [ ] T062 [P] [US3] Create test_backup_count_enforced in tests/test_log_rotation.py
-- [ ] T063 [P] [US3] Create test_disk_usage_bounded in tests/test_log_rotation.py
-- [ ] T064 [P] [US3] Create test_low_disk_space_handling in tests/test_log_rotation.py
-- [ ] T065 [P] [US3] Create test_concurrent_logging_during_rotation in tests/test_log_rotation.py
-- [ ] T066 [P] [US3] Create test_rotation_file_system_error_retry in tests/test_log_rotation.py
-- [ ] T067 [P] [US3] Create test_rotation_retry_exhaustion in tests/test_log_rotation.py
+- [X] T060 [P] [US3] Create tests/test_log_rotation.py with test_rotation_at_threshold
+- [X] T061 [P] [US3] Create test_rotation_maintains_integrity in tests/test_log_rotation.py
+- [X] T062 [P] [US3] Create test_backup_count_enforced in tests/test_log_rotation.py
+- [X] T063 [P] [US3] Create test_disk_usage_bounded in tests/test_log_rotation.py
+- [X] T064 [P] [US3] Create test_low_disk_space_handling in tests/test_log_rotation.py
+- [X] T065 [P] [US3] Create test_concurrent_logging_during_rotation in tests/test_log_rotation.py
+- [X] T066 [P] [US3] Create test_rotation_file_system_error_retry in tests/test_log_rotation.py
+- [X] T067 [P] [US3] Create test_rotation_retry_exhaustion in tests/test_log_rotation.py
 
 ### Implementation for User Story 3
 
-- [ ] T068 [US3] Enhance source/utils/logging.py with rotation threshold verification (10MB), retry logic for file system errors (3 attempts, exponential backoff), disk usage validation (60MB max), low disk space graceful degradation, and rotation failure critical error logging
+- [X] T068 [US3] Enhance source/utils/logging.py with rotation threshold verification (10MB), retry logic for file system errors (3 attempts, exponential backoff), disk usage validation (60MB max), low disk space graceful degradation, and rotation failure critical error logging
 
 **Verification**:
 
-- [ ] T069 [US3] Run pytest tests/test_log_rotation.py and verify all 8 tests pass with 80%+ coverage for log rotation reliability
+- [X] T069 [US3] Run pytest tests/test_log_rotation.py and verify all 8 tests pass with 80%+ coverage for log rotation reliability
 
 **Checkpoint**: At this point, log rotation should be production-hardened with comprehensive error handling
 
@@ -228,34 +228,34 @@ This project uses:
 
 **Test First**:
 
-- [ ] T070 [P] [US4] Create tests/test_health_validators.py with test_validate_wal_mode
-- [ ] T071 [P] [US4] Create test_validate_configuration in tests/test_health_validators.py
-- [ ] T072 [P] [US4] Create test_validate_secrets in tests/test_health_validators.py
-- [ ] T073 [P] [US4] Create test_validate_database_write in tests/test_health_validators.py
-- [ ] T074 [P] [US4] Create test_validate_log_rotation_config in tests/test_health_validators.py
-- [ ] T075 [P] [US4] Create test_validate_hue_bridge_connectivity in tests/test_health_validators.py
-- [ ] T076 [P] [US4] Create test_validate_amazon_aqm_connectivity in tests/test_health_validators.py
-- [ ] T077 [P] [US4] Create test_validator_security_no_credential_leak in tests/test_health_validators.py
+- [X] T070 [P] [US4] Create tests/test_health_validators.py with test_validate_wal_mode
+- [X] T071 [P] [US4] Create test_validate_configuration in tests/test_health_validators.py
+- [X] T072 [P] [US4] Create test_validate_secrets in tests/test_health_validators.py
+- [X] T073 [P] [US4] Create test_validate_database_write in tests/test_health_validators.py
+- [X] T074 [P] [US4] Create test_validate_log_rotation_config in tests/test_health_validators.py
+- [X] T075 [P] [US4] Create test_validate_hue_bridge_connectivity in tests/test_health_validators.py
+- [X] T076 [P] [US4] Create test_validate_amazon_aqm_connectivity in tests/test_health_validators.py
+- [X] T077 [P] [US4] Create test_validator_security_no_credential_leak in tests/test_health_validators.py
 
 ### Tests for User Story 4 - Integration & CLI
 
 **Test First**:
 
-- [ ] T078 [P] [US4] Create tests/test_health_check_integration.py with test_health_check_all_pass_exit_0
-- [ ] T079 [P] [US4] Create test_health_check_partial_failure_exit_1 in tests/test_health_check_integration.py
-- [ ] T080 [P] [US4] Create test_health_check_critical_failure_exit_2 in tests/test_health_check_integration.py
-- [ ] T081 [P] [US4] Create test_health_check_timeout_enforcement in tests/test_health_check_integration.py
-- [ ] T082 [P] [US4] Create test_health_check_output_format in tests/test_health_check_integration.py
-- [ ] T083 [P] [US4] Create test_health_check_remediation_guidance in tests/test_health_check_integration.py
+- [X] T078 [P] [US4] Create tests/test_health_check_integration.py with test_health_check_all_pass_exit_0
+- [X] T079 [P] [US4] Create test_health_check_partial_failure_exit_1 in tests/test_health_check_integration.py
+- [X] T080 [P] [US4] Create test_health_check_critical_failure_exit_2 in tests/test_health_check_integration.py
+- [X] T081 [P] [US4] Create test_health_check_timeout_enforcement in tests/test_health_check_integration.py
+- [X] T082 [P] [US4] Create test_health_check_output_format in tests/test_health_check_integration.py
+- [X] T083 [P] [US4] Create test_health_check_remediation_guidance in tests/test_health_check_integration.py
 
 ### Implementation for User Story 4
 
-- [ ] T084 [US4] Implement component validators in source/health_check.py for WAL mode, configuration, secrets (no credential leakage), database write (with rollback), log rotation config, Hue Bridge connectivity, and Amazon AQM connectivity
-- [ ] T085 [US4] Complete source/health_check.py with result aggregation, output formatting (pass/fail, errors, remediation), 15-second timeout enforcement, exit codes (0/1/2), and CLI entry point
+- [X] T084 [US4] Implement component validators in source/health_check.py for WAL mode, configuration, secrets (no credential leakage), database write (with rollback), log rotation config, Hue Bridge connectivity, and Amazon AQM connectivity
+- [X] T085 [US4] Complete source/health_check.py with result aggregation, output formatting (pass/fail, errors, remediation), 15-second timeout enforcement, exit codes (0/1/2), and CLI entry point
 
 **Verification**:
 
-- [ ] T086 [US4] Run pytest tests/test_health_validators.py tests/test_health_check_integration.py and verify all 14 tests pass with 80%+ coverage
+- [X] T086 [US4] Run pytest tests/test_health_validators.py tests/test_health_check_integration.py and verify all 14 tests pass with 80%+ coverage
 
 **Checkpoint**: At this point, production health check should be fully functional and operational
 

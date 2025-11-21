@@ -1,10 +1,11 @@
 <!--
 Sync Impact Report
-Version change: 2.0.0 → 2.0.1 (PATCH: Added AI Agent Critical Reminders section at document start)
+Version change: 2.0.1 → 2.0.2 (PATCH: Added report naming convention to File Structure section)
 Modified sections:
-  - Added "⚠️ Critical Reminders for AI Agents" section immediately after title
-  - Relocated from Governance section to prominent position for visibility
-  - No principle changes, clarification only
+  - Added `docs/reports/` subdirectory with naming format specification
+  - Format: `YYYY-MM-DD-spec-NNN-phase-N-description.md`
+  - Example provided for clarity
+  - No principle changes, documentation clarification only
 Templates requiring updates: ✅ No template changes required
 Follow-up TODOs: None
 -->
@@ -21,21 +22,28 @@ Follow-up TODOs: None
 
 2. **VERIFY TECH STACK OPTIONS**: Review `docs/tech-stack.md` before choosing implementation language
    - Available: Python, Swift, C/C++, Node.js
-   - Default: Python for rapid development
+   - Default: Python 3.14.0+ (activated venv required)
+   - Performance: Profile before switching to Swift/C++
    - Consider: Swift/C++ for performance-critical paths (profile first)
 
 3. **TEST-DRIVEN DEVELOPMENT**: Write tests before implementation (not 'quick and dirty' anymore)
    - Minimum 80% coverage for new code
-   - Tests define behavior, prevent regressions
+   - Framework: pytest with async support (anyio) and comprehensive mocking
    - Framework: pytest with async support and mocking
 
 4. **RESEARCH COMPLEX FEATURES**: Document research in research.md before coding
    - Required for: OAuth flows, GraphQL APIs, new integrations
-   - Use an iterative approach: investigate → experiment → document → implement
-   - Document all iterations, what was tried, and outcomes
+   - Include: API investigation, experiments, failed attempts, successful patterns
+   - See: Sprint 004 (Amazon AQM) as example
    - Capture: API investigation, experiments, failed attempts, successful patterns, and any other detailed work
 
-5. **CHECK CONSTITUTION**: Consult this document and `docs/project-outliner.md` before starting work
+5. **WRITE IMPLEMENTATION REPORTS**: After completing any phase, create report in `docs/reports/`
+   - Follow: `.specify/templates/commands/report-writing-process.md` (20-step process)
+   - Template: `.specify/templates/report-template.md`
+   - Extract lessons learned to: `.specify/memory/lessons-learned.md` (MANDATORY)
+   - Review existing lessons before starting new work
+
+6. **CHECK CONSTITUTION**: Consult this document and `docs/project-outliner.md` before starting work
    - Verify compliance with principles and constraints
    - Follow sprint structure and Definition of Done
 
@@ -68,6 +76,10 @@ Rationale: Mac Studio M2 Ultra provides 128GB RAM and 60-core GPU (Metal). Lever
 ### VII. Python Virtual Environment Mandatory
 All Python code MUST run inside activated virtual environment (`source venv/bin/activate`). AI agents frequently forget this step.  
 Rationale: Running outside venv causes dependency errors, test failures, and wastes tokens/time with troubleshooting.
+
+### VIII. Knowledge Capture and Retention
+All implementation phases MUST produce detailed reports documenting test results, technical decisions, and lessons learned. Lessons learned MUST be extracted to central knowledge base (`.specify/memory/lessons-learned.md`) to prevent repeating past mistakes.  
+Rationale: Across Sprint 005 phases, recurring patterns emerged (TDD value, error classification, integration test priority). Capturing these systematically enables continuous improvement and informed decision-making on future work.
 
 ## Scope
 
@@ -161,8 +173,10 @@ Each spec folder (`specs/NNN-name/`) MUST contain:
 4. **Implementation**: Implement features to pass tests (iterate: test → code → refine)
 5. **Validation**: Verify deliverables meet acceptance criteria, run full test suite in venv
 6. **Code Review**: Self-review or automated analysis before merge
-7. **Merge**: Merge to `master` via Pull Request
-8. **Retrospective**: Update plan.md with outcomes, learnings, metrics, and challenges
+7. **Report Writing**: Create implementation report in `docs/reports/` following report-writing-process.md
+8. **Lessons Extraction**: Extract lessons learned to `.specify/memory/lessons-learned.md` (mandatory)
+9. **Merge**: Merge to `master` via Pull Request
+10. **Retrospective**: Update plan.md with outcomes, learnings, metrics, and challenges
 
 ### Definition of Done (Enhanced)
 - [ ] Unit tests written and passing (minimum 80% coverage for new code)
@@ -171,6 +185,8 @@ Each spec folder (`specs/NNN-name/`) MUST contain:
 - [ ] Research documented in research.md (if complex feature requiring API exploration)
 - [ ] Code committed to git with descriptive messages referencing sprint/story
 - [ ] Documentation updated (spec.md, plan.md, quickstart.md, README if applicable)
+- [ ] **Implementation report written** following `.specify/templates/commands/report-writing-process.md`
+- [ ] **Lessons learned extracted** to `.specify/memory/lessons-learned.md`
 - [ ] Data collection verified working in real environment (not just mocked tests)
 - [ ] No breaking changes to existing data format or API contracts
 - [ ] Security review completed (credentials, secrets, API exposure, OAuth flows)
@@ -215,7 +231,13 @@ Each spec folder (`specs/NNN-name/`) MUST contain:
 - `data/`: SQLite database, evaluation datasets
 - `config/`: Configuration files (config.yaml, secrets.yaml - gitignored)
 - `docs/`: Project documentation (guides, tech stack, evaluation framework)
+  - `docs/reports/`: Implementation reports with naming format: `YYYY-MM-DD-spec-NNN-phase-N-description.md`
+    - Example: `2024-11-31-spec-005-phase-5-log-rotation-implementation-report.md`
 - `logs/`: Application logs (gitignored)
+- `.specify/`: Spec Kit framework
+  - `templates/`: Document templates (spec, plan, tasks, report)
+  - `templates/commands/`: Process documentation (report-writing-process.md)
+  - `memory/`: Central knowledge base (constitution.md, lessons-learned.md)
 
 ## Success Criteria
 
@@ -324,4 +346,4 @@ The project is successful when:
 
 ---
 
-**Version**: 2.0.1 | **Ratified**: 2025-11-18 | **Last Amended**: 2025-11-20
+**Version**: 2.1.0 | **Ratified**: 2025-11-18 | **Last Amended**: 2025-11-21

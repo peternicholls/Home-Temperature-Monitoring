@@ -14,7 +14,8 @@
 <!--
   ACTION REQUIRED: Replace the content in this section with the technical details
   for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
+  the iteration process. Examples [e.g., and so on in brackets] are placeholders  
+  only and are not meant to be recommended defaults.
 -->
 
 **Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
