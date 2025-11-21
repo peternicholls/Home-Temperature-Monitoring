@@ -19,17 +19,21 @@ last_updated: "2025-11-21"
 - **Integration > Unit**: Integration tests with real component interactions are more valuable than heavily-mocked unit tests. In Phase 6, integration tests were 100% reliable while unit tests failed due to mock complexity. **Action**: Prioritize integration tests for system validation.
 - **Realistic Test Data**: Small test data (<1KB) hides bugs. Use production-realistic sizes (5KB+ for files, full JSON structures for APIs). **Action**: Mock data must mirror production complexity (e.g., full Hue Bridge config with rules/scenes, not just lights).
 - **TDD Discipline**: Writing tests first catches edge cases (data loss in log rotation) and security gaps that implementation-first misses. **Action**: Write tests before implementation.
+- **Early Comprehensive Testing** (Phase 8): Running failure mode simulations (T105-T111: network, API rate limiting, database locks, disk pressure, credentials, OAuth, file system errors) *before* extended duration tests identifies subtle timing issues invisible to multi-hour tests. **Action**: Include 5-8 distinct failure mode simulations in integration test phases before proceeding to 24+ hour duration tests.
 - **Mocking Strategy**:
   - **Patch Location**: Patch where an object is *imported*, not where it is defined.
   - **Stateful Mocks**: Use `side_effect` (sequences of exceptions/values) to test retry and fallback logic.
 - **Performance Testing**:
   - **Tolerances**: Use relative improvements and tolerances (±50ms), not strict timings.
   - **Targeted Coverage**: Measure coverage on the specific module being optimized, not the entire codebase.
+- **Performance Baseline Establishment** (Phase 8): Without concrete before/after measurements, performance claims are subjective. Baselines must be captured on production/realistic hardware/network. Example: baseline (2.4s cycles, 185KB payload) vs optimized (1.6s cycles, 78KB payload) = 33% faster, 58% smaller. **Action**: Establish quantifiable baselines before optimization work and document hardware/network conditions for comparability.
 
 ## 2. Architecture & Resilience
 
 - **Error Classification**: Distinguish between `TransientError` (retryable, e.g., network blip) and `PermanentError` (fail fast, e.g., file not found). **Action**: Implement explicit error hierarchies.
 - **Graceful Degradation**: Partial failures (e.g., one Hue sensor failing) must not crash the entire collection process. **Action**: Catch exceptions at the item level and continue.
+- **Graceful Degradation Requires Explicit Testing** (Phase 8): Failures don't cascade into system crashes only if explicitly tested. Tests T108 (disk pressure), T110 (token expiration), T111 (file system errors) and T055 (optional email notification) validated graceful degradation. Without explicit testing, "graceful" features silently fail. **Action**: For each critical feature, write explicit tests for "feature unavailable" scenarios and verify graceful degradation behavior.
+- **Health Check Component Isolation** (Phase 8): When one validator fails, others must continue and be reported. This "isolation principle" prevents first-failure-hides-subsequent-issues problem. Implementation: try-catch wrapping each validator with aggregation in final step. **Action**: Design health checks with per-validator isolation and final aggregation step. This improves production debugging usability.
 - **Thread Safety**: Python's `logging` is thread-safe, but custom logic (like rotation) requires explicit `threading.Lock()`.
 - **Resilient Storage**:
   - **Write Verification**: Test database writes using transaction rollbacks to avoid side effects.
@@ -41,6 +45,7 @@ last_updated: "2025-11-21"
 - **Profile First**: Do not optimize without profiling. The M2 Ultra environment is powerful; premature optimization wastes time.
 - **Baselines**: Capture performance baselines (`data/performance_baseline.json`) *before* optimizing to prove regression/improvement.
 - **Type Safety**: When using context managers that populate values on exit, explicitly `assert value is not None` before using them in calculations to satisfy type checkers.
+- **Timeout Envelope Management** (Phase 8): When setting aggregate timeouts (e.g., 15-second health check with sub-component timeouts), account for component timeouts with 30%+ headroom. Hue Bridge timeout (5s) + Amazon timeout (10s) + other validators (≤3.5s) = 18.5s max, fits in 15s limit with careful timing. **Action**: Create timeout budget table (component → limit) and test each component against worst-case scenarios. Document timeout allocation across all validators.
 
 ## 4. Development Workflow & Operations
 
@@ -48,6 +53,7 @@ last_updated: "2025-11-21"
 - **Virtual Environment**: **ALWAYS** activate the virtual environment first: `source venv/bin/activate`.
 - **Alerting**: Use file-based alerts (`data/ALERT_*.txt`) for critical failures to enable simple monitoring integration.
 - **Async Testing**: Use `pytest-anyio` with the `asyncio` backend for async test support.
+- **Concurrent Load vs Duration Testing** (Phase 8): Different test types reveal different problems. Concurrent load testing (multiple collectors writing simultaneously) uncovers race conditions and resource contention invisible to single-collector tests. Duration testing (24+ hours) validates stability under sustained load. Database lock scenarios appear under concurrent load but not in sequential scenarios. **Action**: Use separate test phases: (1) single-component validation, (2) multi-component concurrent validation, (3) duration validation. Each reveals different failure categories.
 
 ## 5. Security & Compliance
 

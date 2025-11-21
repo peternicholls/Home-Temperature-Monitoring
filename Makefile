@@ -1,4 +1,4 @@
-.PHONY: help setup clean auth auth-ip discover collect-once continuous aqm-setup aqm-discover aqm-collect aqm-continuous aqm-test web-start web-stop db-reset db-query db-view db-stats logs logs-tail logs-clear test test-discover test-full lint format
+.PHONY: help setup clean auth auth-ip discover collect-once continuous aqm-setup aqm-discover aqm-collect aqm-continuous aqm-test web-start web-stop db-reset db-query db-view db-stats logs logs-tail logs-clear test test-discover test-full test-24hour-setup test-24hour-stop test-24hour-verify collection-init collection-start collection-stop collection-status collection-logs collection-uninstall lint format health-check
 
 # Colors for output
 BLUE := \033[0;34m
@@ -32,6 +32,22 @@ help: ## Show this help message
 	@echo "  make aqm-collect    - Collect AQM readings once and store in database"
 	@echo "  make aqm-continuous - Run continuous AQM collection (5-min intervals, Ctrl+C to stop)"
 	@echo "  make aqm-test       - Test AQM integration (discover + collect + verify DB)"
+	@echo ""
+	@echo "$(GREEN)Health Check:$(NC)"
+	@echo "  make health-check   - Run comprehensive health check of system"
+	@echo ""
+	@echo "$(GREEN)Production Testing - 24 Hour Operation:$(NC)"
+	@echo "  make test-24hour-setup   - T101: Start 24-hour continuous operation test"
+	@echo "  make test-24hour-stop    - Stop running 24-hour test gracefully"
+	@echo "  make test-24hour-verify  - T102-T104: Verify test results (SC-001, SC-002, SC-007)"
+	@echo ""
+	@echo "$(GREEN)Scheduled Collection (launchd):$(NC)"
+	@echo "  make collection-init     - Initialize launchd agents (one-time setup)"
+	@echo "  make collection-start    - Start scheduled collection (every 5 minutes)"
+	@echo "  make collection-stop     - Stop scheduled collection"
+	@echo "  make collection-status   - Show scheduled collection status"
+	@echo "  make collection-logs     - View scheduled collection logs"
+	@echo "  make collection-uninstall - Remove launchd agents completely"
 	@echo ""
 	@echo "$(GREEN)Database:$(NC)"
 	@echo "  make db-reset       - Delete and recreate empty database"
@@ -224,5 +240,46 @@ lint: ## Check Python files with pylint
 format: ## Format Python code with black
 	@echo "$(BLUE)Formatting Python code with black...$(NC)"
 	. venv/bin/activate && black source/ --line-length 100 --quiet
+
+# Production Testing - 24 Hour Operation Tests (T101-T104)
+health-check: ## Run comprehensive health check of system
+	@echo "$(BLUE)Running health check...$(NC)"
+	. venv/bin/activate && python source/health_check.py
+
+test-24hour-setup: ## T101: Start 24-hour continuous operation test
+	@bash scripts/test-24hour-setup.sh
+
+test-24hour-stop: ## Stop running 24-hour test gracefully
+	@bash scripts/test-24hour-stop.sh
+
+test-24hour-verify: ## T102-T104: Verify 24-hour test results (SC-001, SC-002, SC-007)
+	@bash scripts/test-24hour-verify.sh
+
+# Scheduled Collection (launchd) - macOS background collection
+collection-init: ## Initialize launchd agents (one-time setup)
+	@bash scripts/launchd-init.sh
+
+collection-start: ## Start scheduled collection (every 5 minutes)
+	@echo "$(BLUE)Starting scheduled collection...$(NC)"
+	@launchctl load "$$HOME/.config/LaunchAgents/com.hometemperaturemonitoring.hue.plist" 2>/dev/null || true
+	@launchctl load "$$HOME/.config/LaunchAgents/com.hometemperaturemonitoring.amazon.plist" 2>/dev/null || true
+	@echo "$(GREEN)✓ Collection started! Runs every 5 minutes.$(NC)"
+
+collection-stop: ## Stop scheduled collection
+	@echo "$(BLUE)Stopping scheduled collection...$(NC)"
+	@launchctl unload "$$HOME/.config/LaunchAgents/com.hometemperaturemonitoring.hue.plist" 2>/dev/null || echo "  (Hue agent not loaded)"
+	@launchctl unload "$$HOME/.config/LaunchAgents/com.hometemperaturemonitoring.amazon.plist" 2>/dev/null || echo "  (Amazon agent not loaded)"
+	@echo "$(GREEN)✓ Collection stopped!$(NC)"
+
+collection-status: ## Show scheduled collection status
+	@echo "$(BLUE)Scheduled Collection Status:$(NC)"
+	@launchctl list | grep -i hometemperaturemonitoring || echo "  No agents loaded"
+
+collection-logs: ## View scheduled collection logs
+	@echo "$(BLUE)Following Hue scheduled logs (Ctrl+C to stop)...$(NC)"
+	@tail -f logs/hue_scheduled.log 2>/dev/null || echo "  (No logs yet - run: make collection-start)"
+
+collection-uninstall: ## Remove launchd agents completely
+	@bash scripts/launchd-cleanup.sh
 
 .DEFAULT_GOAL := help
