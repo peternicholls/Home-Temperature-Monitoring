@@ -161,7 +161,69 @@ make db-query SQL="SELECT device_id, temperature_celsius, timestamp FROM reading
 sqlite3 data/readings.db "SELECT device_id, temperature_celsius, humidity_percent FROM readings LIMIT 10;"
 ```
 
-### 7. Development Commands
+### 8. Device Registry - Custom Device Names (Phase 9)
+
+The device registry allows you to assign friendly names to your sensors, making readings easier to understand. Device names are stored in a **user-editable YAML file** at `config/device_registry.yaml`.
+
+**Automatic Name Inference**:
+When devices are first discovered, they automatically receive descriptive names based on their location and type:
+- `Hall Hue Sensor` (from location "Hall" + device type "hue_sensor")
+- `Living Room AQM` (from location "Living Room" + device type "alexa_aqm")
+- `Utility Nest Thermostat` (from location "Utility" + device type "nest_thermostat")
+
+**Customize Device Names - Three Methods**:
+
+1. **Edit YAML File Directly** (Recommended - Simplest):
+   ```bash
+   # Open config/device_registry.yaml in any text editor
+   nano config/device_registry.yaml
+   ```
+   
+   Find your device and change the `name` field:
+   ```yaml
+   devices:
+     hue:00:17:88:01:02:02:b5:21-02-0402:
+       name: Kitchen Temperature Monitor  # ← Edit this
+       location: Utility
+       device_type: hue_sensor
+       model_info: SML001
+   ```
+   
+   Changes take effect immediately on the next collection (no restart needed).
+
+2. **Use Makefile Commands**:
+   ```bash
+   # List all registered devices
+   make devices-list
+   
+   # Set a custom device name
+   make devices-set-name DEVICE_ID="hue:00:17:88:01:02:3a:bc:de-02-0402" NAME="Kitchen Sensor"
+   ```
+
+3. **Use Python CLI Directly**:
+   ```bash
+   # List devices with filtering
+   python source/storage/device_manager.py --list-devices
+   python source/storage/device_manager.py --list-devices --type hue_sensor
+   
+   # Set device name
+   python source/storage/device_manager.py --set-name "hue:ABC123" "Kitchen Sensor"
+   ```
+
+**How it works**:
+- Devices are automatically registered in `config/device_registry.yaml` when first discovered
+- Custom names appear in collection output: `✅ Kitchen Temperature Monitor: 20.5°C [Battery: 100%]`
+- Names persist across restarts and are immediately reflected in new readings
+- YAML format is human-readable and safe to edit manually
+- Device metadata (first_seen, last_seen, model_info) is tracked automatically
+
+**For detailed documentation**, see [`config/DEVICE_REGISTRY_README.md`](config/DEVICE_REGISTRY_README.md) which covers:
+- Complete YAML structure explanation
+- Device ID format reference
+- Troubleshooting common issues
+- Best practices for name management
+
+### 9. Development Commands
 
 ```bash
 # View logs
