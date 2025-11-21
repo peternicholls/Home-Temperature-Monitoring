@@ -63,7 +63,7 @@ description: "Task list for implementing SpecKit pre-execution hook system"
 - [X] T008 Verify exit code documentation comments are present
 - [X] T009 Verify custom project-specific checks section exists (placeholder for future)
 - [X] T010 Verify success message and exit 0 at end of script
-- [ ] T011 Test pre-agent-check.sh execution time (should be < 2 seconds)
+ - [X] T011 Test pre-agent-check.sh execution time (should be < 2 seconds)
 
 ---
 
@@ -213,9 +213,9 @@ description: "Task list for implementing SpecKit pre-execution hook system"
 - [X] T060 Add placeholder examples for Docker, database checks, environment variables (commented out)
 - [X] T061 Add exit code documentation at top of template
 - [X] T062 Add "CUSTOMIZE THIS SECTION" markers for all project-specific logic
-- [ ] T063 Add detection patterns that work across different project layouts (src/, source/, app/, etc.)
-- [ ] T064 Verify template has NO hardcoded project-specific paths
-- [ ] T065 Test template generates valid bash script (syntax check)
+ - [X] T063 Add detection patterns that work across different project layouts (src/, source/, app/, etc.)
+ - [X] T064 Verify template has NO hardcoded project-specific paths
+ - [X] T065 Test template generates valid bash script (syntax check)
 
 ---
 

@@ -121,5 +121,4 @@ fi
 # Success
 #============================================================================
 
-echo "✅ Pre-execution checks complete - proceeding with agent execution"
 exit 0

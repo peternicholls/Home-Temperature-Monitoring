@@ -271,31 +271,31 @@ This project uses:
 
 **Test First**:
 
-- [ ] T087 [P] [US5] Create tests/test_baseline_capture.py with test_capture_collection_cycle_duration
-- [ ] T088 [P] [US5] Create test_capture_network_payload_size in tests/test_baseline_capture.py
-- [ ] T089 [P] [US5] Create test_baseline_storage_and_retrieval in tests/test_baseline_capture.py
-- [ ] T090 [P] [US5] Create test_baseline_comparison_reporting in tests/test_baseline_capture.py
+- [X] T087 [P] [US5] Create tests/test_baseline_capture.py with test_capture_collection_cycle_duration
+- [X] T088 [P] [US5] Create test_capture_network_payload_size in tests/test_baseline_capture.py
+- [X] T089 [P] [US5] Create test_baseline_storage_and_retrieval in tests/test_baseline_capture.py
+- [X] T090 [P] [US5] Create test_baseline_comparison_reporting in tests/test_baseline_capture.py
 
 ### Tests for User Story 5 - Hue API Optimization
 
 **Test First**:
 
-- [ ] T091 [P] [US5] Create tests/test_hue_optimization.py with test_sensors_only_endpoint
-- [ ] T092 [P] [US5] Create test_payload_size_50_percent_reduction in tests/test_hue_optimization.py
-- [ ] T093 [P] [US5] Create test_cycle_duration_30_percent_reduction in tests/test_hue_optimization.py
-- [ ] T094 [P] [US5] Create test_optimization_fallback_on_error in tests/test_hue_optimization.py
-- [ ] T095 [P] [US5] Create test_optimization_under_high_latency in tests/test_hue_optimization.py
+- [X] T091 [P] [US5] Create tests/test_hue_optimization.py with test_sensors_only_endpoint
+- [X] T092 [P] [US5] Create test_payload_size_50_percent_reduction in tests/test_hue_optimization.py
+- [X] T093 [P] [US5] Create test_cycle_duration_30_percent_reduction in tests/test_hue_optimization.py
+- [X] T094 [P] [US5] Create test_optimization_fallback_on_error in tests/test_hue_optimization.py
+- [X] T095 [P] [US5] Create test_optimization_under_high_latency in tests/test_hue_optimization.py
 
 ### Implementation for User Story 5
 
-- [ ] T096 [US5] Create baseline capture utility in source/utils/performance.py for measuring current production Hue collector cycle duration and network payload, storing baseline, and generating comparison report
-- [ ] T097 [US5] Capture baseline metrics by running current Hue collector with performance measurement and storing results in data/performance_baseline.json
-- [ ] T098 [US5] Optimize source/collectors/hue_collector.py with sensors-only endpoint call (vs full bridge config), payload size logging, cycle duration logging, fallback to full config on error, and verification of 50%+ payload reduction and 30%+ duration improvement
+- [X] T096 [US5] Create baseline capture utility in source/utils/performance.py for measuring current production Hue collector cycle duration and network payload, storing baseline, and generating comparison report
+- [X] T097 [US5] Capture baseline metrics by running current Hue collector with performance measurement and storing results in data/performance_baseline.json
+- [X] T098 [US5] Optimize source/collectors/hue_collector.py with sensors-only endpoint call (vs full bridge config), payload size logging, cycle duration logging, fallback to full config on error, and verification of 50%+ payload reduction and 30%+ duration improvement
 
 **Verification**:
 
-- [ ] T099 [US5] Run pytest tests/test_baseline_capture.py tests/test_hue_optimization.py and verify all 9 tests pass with 80%+ coverage
-- [ ] T100 [US5] Compare optimized performance against baseline and verify targets met (30% duration improvement, 50% payload reduction)
+- [X] T099 [US5] Run pytest tests/test_baseline_capture.py tests/test_hue_optimization.py and verify all 9 tests pass with 80%+ coverage
+- [X] T100 [US5] Compare optimized performance against baseline and verify targets met (30% duration improvement, 50% payload reduction)
 
 **Checkpoint**: All user stories should now be independently functional with verified performance optimization
 
@@ -314,34 +314,34 @@ This project uses:
 
 ### Failure Mode Simulation Tests
 
-- [ ] T105 [P] Test network disconnection for both collectors and verify retry logic
-- [ ] T106 [P] Test API rate limiting and verify backoff behavior
-- [ ] T107 [P] Test database lock contention under concurrent writes
-- [ ] T108 [P] Test low disk space handling for log rotation
-- [ ] T109 [P] Test invalid credentials detection and health check alerts
-- [ ] T110 [P] Test OAuth token expiration and alert file creation for Amazon AQM
-- [ ] T111 [P] Test log rotation file system errors and retry behavior
-- [ ] T112 Verify SC-007: Consistent retry behavior across all collectors with comprehensive logging
+- [X] T105 [P] Test network disconnection for both collectors and verify retry logic
+- [X] T106 [P] Test API rate limiting and verify backoff behavior
+- [X] T107 [P] Test database lock contention under concurrent writes
+- [X] T108 [P] Test low disk space handling for log rotation
+- [X] T109 [P] Test invalid credentials detection and health check alerts
+- [X] T110 [P] Test OAuth token expiration and alert file creation for Amazon AQM
+- [X] T111 [P] Test log rotation file system errors and retry behavior
+- [X] T112 Verify SC-007: Consistent retry behavior across all collectors with comprehensive logging
 
 ### Health Check Validation Suite
 
-- [ ] T113 [P] Test health check against missing config.yaml
-- [ ] T114 [P] Test health check against invalid secrets.yaml format
-- [ ] T115 [P] Test health check against missing Hue Bridge username
-- [ ] T116 [P] Test health check against missing Amazon credentials
-- [ ] T117 [P] Test health check against read-only database file
-- [ ] T118 [P] Test health check against non-writable log directory
-- [ ] T119 [P] Test health check against WAL mode disabled
-- [ ] T120 [P] Test health check against unreachable Hue Bridge
-- [ ] T121 [P] Test health check against invalid Amazon AQM credentials
-- [ ] T122 Test health check against multiple simultaneous failures
-- [ ] T123 Verify SC-004: Health check completes in <15 seconds and accurately identifies all 10 failure scenarios
+- [X] T113 [P] Test health check against missing config.yaml
+- [X] T114 [P] Test health check against invalid secrets.yaml format
+- [X] T115 [P] Test health check against missing Hue Bridge username
+- [X] T116 [P] Test health check against missing Amazon credentials
+- [X] T117 [P] Test health check against read-only database file
+- [X] T118 [P] Test health check against non-writable log directory
+- [X] T119 [P] Test health check against WAL mode disabled
+- [X] T120 [P] Test health check against unreachable Hue Bridge
+- [X] T121 [P] Test health check against invalid Amazon AQM credentials
+- [X] T122 Test health check against multiple simultaneous failures
+- [X] T123 Verify SC-004: Health check completes in <15 seconds and accurately identifies all 10 failure scenarios
 
 ### Performance Validation
 
-- [ ] T124 Verify SC-005: Hue collection cycles 30%+ faster than baseline
-- [ ] T125 Verify SC-006: Network transfer 50%+ smaller than baseline
-- [ ] T126 Verify SC-003: Log disk usage <60MB after 30-day simulation (accelerated logging test)
+- [X] T124 Verify SC-005: Hue collection cycles 30%+ faster than baseline
+- [X] T125 Verify SC-006: Network transfer 50%+ smaller than baseline
+- [X] T126 Verify SC-003: Log disk usage <60MB after 30-day simulation (accelerated logging test)
 
 ---
 
