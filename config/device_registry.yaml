@@ -1,0 +1,22 @@
+devices:
+  hue:00:17:88:01:02:02:b5:21-02-0402:
+    name: Utility Temperature Monitor
+    location: Utility
+    device_type: hue_sensor
+    model_info: SML001
+    first_seen: '2025-11-21 22:38:30'
+    last_seen: '2025-11-21 22:39:04'
+  hue:00:17:88:01:03:28:0f:d0-02-0402:
+    name: Hall Hue Sensor
+    location: Hall
+    device_type: hue_sensor
+    model_info: SML001
+    first_seen: '2025-11-21 22:38:30'
+    last_seen: '2025-11-21 22:47:55'
+  alexa:GAJ23005314600H3:
+    name: Living Room Air Quality
+    location: Living Room
+    device_type: amazon_aqm
+    model_info: A3VRME03NAXFUB
+    first_seen: '2025-11-21 22:38:40'
+    last_seen: '2025-11-21 22:39:14'
