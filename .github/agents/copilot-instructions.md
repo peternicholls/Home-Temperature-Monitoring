@@ -1,6 +1,43 @@
+````chatagent
 # HomeTemperatureMonitoring Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2025-11-18
+## ⚠️ CRITICAL: PYTHON VENV MUST BE ACTIVE
+
+**BEFORE ANY PYTHON COMMAND** (pytest, pip, python, etc.):
+
+```bash
+# Verify venv is active
+which python  # Must show: /Users/peternicholls/Dev/HomeTemperatureMonitoring/venv/bin/python
+
+# If not active, activate it:
+source venv/bin/activate
+```
+
+**Why**: Running pytest without venv causes `ModuleNotFoundError` for phue, pyyaml, etc.
+
+---
+
+## 🚀 AGENT SESSION INITIALIZATION
+
+**IMPORTANT**: Run this command when starting a new session:
+
+```bash
+source .specify/scripts/bash/init-agent-session.sh
+```
+
+This initialization script will:
+1. ✅ Display critical constitution reminders (6 key requirements)
+2. ✅ Auto-activate Python virtual environment
+3. 📂 Show current feature context (branch, spec files)
+4. ✔️  Check prerequisites (spec.md, plan.md, tasks.md)
+5. 🛠️  Display tech stack summary
+6. 📋 Report task status (completed/remaining)
+
+**Session setup time**: 10-15 seconds (automated)
+
+---
+
+Auto-generated from all feature plans. Last updated: 2025-11-21
 
 ## Active Technologies
 - SQLite database (as per constitution) (002-hue-integration)

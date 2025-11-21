@@ -214,6 +214,83 @@ specs/
 └── 002-hue-integration/     # Hue feature specification
 ```
 
+## Pre-Execution Hook System
+
+This project uses **SpecKit's Pre-Execution Hook** system to prevent common development issues and reduce session failures from ~15-20% to <5%.
+
+### How It Works
+
+Before any SpecKit agent command (`/speckit.implement`, `/speckit.plan`, etc.) starts work, it automatically:
+
+1. **Displays Constitution Reminders**: Shows critical project principles to prevent mistakes
+2. **Activates Python venv**: Auto-detects and activates virtual environment
+3. **Validates Environment**: Checks required setup before proceeding
+4. **Blocks on Errors**: Stops execution if critical issues found (exit 1)
+5. **Warns on Issues**: Shows warnings but continues if non-critical (exit 2)
+
+### Exit Code Behavior
+
+| Exit Code | Meaning | Agent Behavior |
+|-----------|---------|----------------|
+| `0` | Success - all checks passed | Proceed to agent work |
+| `1` | Critical failure | **STOP** - fix issue first |
+| `2` | Warning - non-critical | Show warning, continue |
+
+### Manual Testing
+
+Test the pre-check script independently:
+
+```bash
+# Normal execution (exit 0 expected)
+bash .specify/scripts/bash/pre-agent-check.sh
+echo $?  # Should show 0
+
+# Deactivate venv and test auto-activation
+deactivate
+bash .specify/scripts/bash/pre-agent-check.sh  # Should auto-activate
+```
+
+### Customization
+
+The pre-check script is located at `.specify/scripts/bash/pre-agent-check.sh`. Customize it to add:
+
+- Additional environment variable checks
+- Database connection validation
+- API credential verification
+- Custom project-specific requirements
+
+**Note**: The pre-check script is optional. If it doesn't exist, agents skip directly to their core work (backward compatible).
+
+### Troubleshooting Pre-Check Failures
+
+**venv activation fails**:
+```bash
+# Ensure venv exists
+python3 -m venv venv
+
+# Manually activate and test
+source venv/bin/activate
+which python  # Should show path to venv/bin/python
+```
+
+**Constitution reminders not showing**:
+```bash
+# Test helper script directly
+bash .specify/scripts/bash/show-constitution-reminders.sh
+```
+
+**Pre-check script blocked**:
+- Read error message carefully (shows what failed)
+- Fix the reported issue before re-running agent
+- For persistent issues, temporarily rename script to bypass: `mv .specify/scripts/bash/pre-agent-check.sh{,.bak}`
+
+For more details, see:
+- **Implementation Spec**: `specs/006-pre-execution-hook/spec.md`
+- **Testing Instructions**: `specs/006-pre-execution-hook/TESTING_INSTRUCTIONS.md`
+- **Template for New Projects**: `.specify/templates/pre-agent-check.sh.template`
+
+---
+
 ## Documentation
 - [Project Constitution](docs/project-outliner.md) - Development principles and constraints
 - [Hue Integration Guide](specs/002-hue-integration/quickstart.md) - Complete Hue setup walkthrough

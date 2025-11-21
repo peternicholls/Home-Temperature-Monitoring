@@ -16,6 +16,17 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
+0. **Pre-Execution Validation** (Project-specific requirements):
+   - Check if `.specify/scripts/bash/pre-agent-check.sh` exists
+   - If exists:
+     - Run: `bash .specify/scripts/bash/pre-agent-check.sh`
+     - Capture exit code and output
+     - Exit 0: Proceed to Step 1
+     - Exit 1: STOP - Display stderr, error message, do not continue
+     - Exit 2: Display stdout/stderr as warning, proceed to Step 1
+   - If not exists: Skip to Step 1
+   - **Why This Helps**: Projects can inject custom requirements (constitution reminders, environment checks, auto-fixes) without modifying SpecKit agent files
+
 Goal: Detect and reduce ambiguity or missing decision points in the active feature specification and record the clarifications directly in the spec file.
 
 Note: This clarification workflow is expected to run (and be completed) BEFORE invoking `/speckit.plan`. If the user explicitly states they are skipping clarification (e.g., exploratory spike), you may proceed, but must warn that downstream rework risk increases.

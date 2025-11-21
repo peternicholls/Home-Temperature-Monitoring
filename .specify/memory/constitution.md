@@ -1,13 +1,13 @@
 <!--
 Sync Impact Report
-Version change: 2.0.1 → 2.0.2 (PATCH: Added report naming convention to File Structure section)
+Version change: 2.0.2 → 2.0.3 (PATCH: Added Pre-Execution Hook System reference to Critical Reminders)
 Modified sections:
-  - Added `docs/reports/` subdirectory with naming format specification
-  - Format: `YYYY-MM-DD-spec-NNN-phase-N-description.md`
-  - Example provided for clarity
-  - No principle changes, documentation clarification only
+  - Added note about Pre-Execution Hook System auto-displaying reminders
+  - Added automation note to Critical Reminder #1 (venv auto-activation)
+  - Cross-referenced `.specify/memory/pre-check-exit-codes.md`
+  - No principle changes, documentation enhancement only
 Templates requiring updates: ✅ No template changes required
-Follow-up TODOs: None
+Follow-up TODOs: Test pre-execution hook with all agents to verify automatic display
 -->
 
 # Home Temperature Monitoring Constitution
@@ -16,9 +16,12 @@ Follow-up TODOs: None
 
 **READ THIS FIRST** before any work in this repository:
 
+**NOTE**: These reminders are automatically displayed by the **Pre-Execution Hook System** before any SpecKit agent starts work. See `.specify/memory/pre-check-exit-codes.md` for details.
+
 1. **ALWAYS ACTIVATE PYTHON VENV FIRST**: `source venv/bin/activate` before any Python commands
    - Verify: `which python` should show `/Users/peternicholls/Dev/HomeTemperatureMonitoring/venv/bin/python`
    - Running without venv wastes time with dependency errors and test failures
+   - **Automated**: Pre-execution hook auto-activates venv if Python project detected
 
 2. **VERIFY TECH STACK OPTIONS**: Review `docs/tech-stack.md` before choosing implementation language
    - Available: Python, Swift, C/C++, Node.js

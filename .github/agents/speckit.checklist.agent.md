@@ -33,6 +33,17 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Execution Steps
 
+0. **Pre-execution validation**: Run `.specify/scripts/bash/pre-agent-check.sh` from repo root BEFORE all other steps (if exists).
+   - Check if `.specify/scripts/bash/pre-agent-check.sh` exists
+   - If exists:
+     - Run: `bash .specify/scripts/bash/pre-agent-check.sh`
+     - Capture exit code and output
+     - Exit 0: Proceed to Step 1
+     - Exit 1: STOP - Display stderr, error message, do not continue
+     - Exit 2: Display stdout/stderr as warning, proceed to Step 1
+   - If not exists: Skip to Step 1
+   - **Purpose**: Validates environment setup, activates required contexts, and displays critical constitution reminders to prevent common failure modes
+
 1. **Setup**: Run `.specify/scripts/bash/check-prerequisites.sh --json` from repo root and parse JSON for FEATURE_DIR and AVAILABLE_DOCS list.
    - All file paths must be absolute.
    - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
