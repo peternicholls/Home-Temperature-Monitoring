@@ -241,7 +241,7 @@ def is_temperature_anomalous(temp_celsius: float, config: dict) -> bool:
     return temp_celsius < temp_min or temp_celsius > temp_max
 
 
-def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dict, config: dict, cached_sensors_data: Optional[dict] = None) -> Optional[Dict]:
+def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dict, config: dict, cached_sensors_data: Optional[dict] = None, device_registry_mgr = None) -> Optional[Dict]:
     """
     Collect a single temperature reading from a sensor with retry logic.
     
@@ -251,6 +251,7 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
         sensor_info: Sensor metadata dictionary
         config: Configuration dictionary
         cached_sensors_data: Pre-fetched sensors data to avoid redundant API calls
+        device_registry_mgr: Optional DeviceRegistryManager for device naming
         
     Returns:
         Reading dictionary or None if sensor is offline/has no data
@@ -341,13 +342,33 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
                 device_id=sensor_info['unique_id']
             )
         
+        # Register device in registry and get name (inferred or custom)
+        unique_id = f"hue:{sensor_info['unique_id']}"
+        
+        if device_registry_mgr:
+            # Register device and get name (auto-inferred or user-customized from YAML)
+            device_name = device_registry_mgr.register_device(
+                unique_id=unique_id,
+                device_type='hue_sensor',
+                location=sensor_info['location'],
+                model_info=sensor_info.get('model_id')
+            )
+        else:
+            # Fallback if no registry manager
+            from source.storage.yaml_device_registry import infer_device_name
+            device_name = infer_device_name(
+                sensor_info['location'], 
+                'hue_sensor', 
+                sensor_info['unique_id']
+            )
+        
         # Build reading dictionary
         reading = {
             'timestamp': datetime.now(timezone.utc).isoformat(),
             'device_id': f"hue:{sensor_info['unique_id']}",
             'temperature_celsius': temp_celsius,
             'location': sensor_info['location'],
-            'name': sensor_info['location'],
+            'name': device_name,  # Use custom name from registry or default
             'device_type': 'hue_sensor',
             'is_anomalous': is_anomalous,
         }
@@ -404,6 +425,20 @@ def collect_all_readings(bridge: Bridge, config: dict) -> List[Dict]:
     """
     logger.info("Starting collection cycle...")
     
+    # Initialize device registry manager
+    device_registry_mgr = None
+    try:
+        from source.storage.manager import DatabaseManager
+        from source.storage.yaml_device_registry import YAMLDeviceRegistry
+        
+        db_path = config.get('storage', {}).get('database_path', 'data/readings.db')
+        db_manager = DatabaseManager(db_path, config)
+        device_registry_mgr = YAMLDeviceRegistry()
+        logger.debug("Device registry manager initialized")
+    except Exception as e:
+        logger.warning(f"Device registry not available, using default names: {e}")
+        device_registry_mgr = None
+    
     # Discover sensors
     sensors = discover_sensors(bridge, config)
     
@@ -446,7 +481,7 @@ def collect_all_readings(bridge: Bridge, config: dict) -> List[Dict]:
         for attempt in range(retry_attempts):
             try:
                 reading = collect_reading_from_sensor(
-                    bridge, sensor_id, sensor_info, config, cached_sensors_data
+                    bridge, sensor_id, sensor_info, config, cached_sensors_data, device_registry_mgr
                 )
                 
                 if reading:

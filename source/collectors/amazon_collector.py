@@ -13,7 +13,7 @@ import httpx
 import asyncio
 import os
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -315,7 +315,7 @@ class AmazonAQMCollector:
                 
                 # Parse capability states (they're JSON strings!)
                 readings = {
-                    'timestamp': datetime.now().isoformat(),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
                 }
                 
                 # Instance ID mapping (from GraphQL discovery and v5.0.5 code)
@@ -435,7 +435,7 @@ class AmazonAQMCollector:
         
         return errors
     
-    def format_reading_for_db(self, entity_id: str, serial: str, readings: dict, config: dict) -> dict:
+    def format_reading_for_db(self, entity_id: str, serial: str, readings: dict, config: dict, device_registry_mgr = None) -> dict:
         """
         Format AQM readings for database insertion.
         
@@ -444,6 +444,7 @@ class AmazonAQMCollector:
             serial: Device serial number
             readings: Raw readings from get_air_quality_readings()
             config: Configuration dict
+            device_registry_mgr: Optional DeviceRegistryManager for device naming
             
         Returns:
             dict: Formatted reading ready for database
@@ -457,6 +458,20 @@ class AmazonAQMCollector:
         # This distinguishes AQM devices from Hue sensors (hue:id)
         device_id = f"alexa:{serial}"
         
+        # Register device in registry and get name (inferred or custom)
+        if device_registry_mgr:
+            # Register device and get name (auto-inferred or user-customized from YAML)
+            device_name = device_registry_mgr.register_device(
+                unique_id=device_id,
+                device_type='amazon_aqm',
+                location=location,
+                model_info='A3VRME03NAXFUB'  # Amazon Smart Air Quality Monitor
+            )
+        else:
+            # Fallback if no registry manager
+            from source.storage.yaml_device_registry import infer_device_name
+            device_name = infer_device_name(location, 'alexa_aqm', serial)
+        
         # Format reading with all sensor fields
         # All air quality fields are optional (some devices lack certain sensors)
         db_reading = {
@@ -464,7 +479,7 @@ class AmazonAQMCollector:
             'device_id': device_id,
             'temperature_celsius': readings.get('temperature_celsius'),  # Required
             'location': location,
-            'name': location,
+            'name': device_name,  # Use custom name from registry or default
             'device_type': 'alexa_aqm',
             'humidity_percent': readings.get('humidity_percent'),  # Optional
             'pm25_ugm3': readings.get('pm25_ugm3'),  # Particulate matter (optional)
@@ -493,6 +508,16 @@ class AmazonAQMCollector:
             bool: True if at least one reading was stored successfully, False otherwise
         """
         try:
+            # Initialize device registry manager
+            device_registry_mgr = None
+            try:
+                from source.storage.yaml_device_registry import YAMLDeviceRegistry
+                device_registry_mgr = YAMLDeviceRegistry()
+                logger.debug("Device registry manager initialized")
+            except Exception as e:
+                logger.warning(f"Device registry not available, using default names: {e}")
+                device_registry_mgr = None
+            
             # Step 1: Discover all AQM devices registered to this account
             devices = await self.list_devices()
             
@@ -521,7 +546,7 @@ class AmazonAQMCollector:
                     # Continue anyway - store what we have
                 
                 # Step 5: Format for database insertion (add location, device_id, etc.)
-                db_reading = self.format_reading_for_db(entity_id, serial, readings, self.config)
+                db_reading = self.format_reading_for_db(entity_id, serial, readings, self.config, device_registry_mgr)
                 
                 # Step 6: Insert to database (UNIQUE constraint prevents duplicates)
                 if db_manager.insert_temperature_reading(db_reading):
