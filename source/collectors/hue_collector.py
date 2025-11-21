@@ -18,7 +18,6 @@ Usage:
 
 import argparse
 import json
-import logging
 import sys
 import time
 import yaml
@@ -26,6 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 from source.utils.retry import retry_with_backoff, TransientError
+from source.utils.structured_logger import StructuredLogger
 
 # Ensure project root is on sys.path so `import source.*` works when running as script
 try:
@@ -49,12 +49,8 @@ except ImportError:
     print("Run: pip install requests")
     sys.exit(1)
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Initialize structured logger
+logger = StructuredLogger("hue_collector")
 
 
 def load_config(config_path: str = "config/config.yaml") -> dict:
@@ -196,9 +192,22 @@ def discover_sensors(bridge: Bridge, config: dict) -> List[Dict]:
                 'battery_level': battery,
             })
 
+        # Log with structured metadata
+        temp_sensors = [s for s in sensors if s['model_id'] and 'ZHATemperature' in s['model_id']]
+        logger.info(
+            "Discovered sensors",
+            sensor_count=len(sensors),
+            temperature_sensors=len(temp_sensors),
+            device_ids=[s['location'] for s in temp_sensors]
+        )
+
         return sensors
     except Exception as e:
-        logger.warning(f"Failed to discover sensors from bridge: {e}")
+        logger.error(
+            "Failed to discover sensors",
+            error_code="discovery_failed",
+            error_message=str(e)
+        )
         return []
 
 def convert_temperature(raw_temp: int) -> float:
@@ -301,13 +310,23 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
         
         # Check if sensor is reachable - permanent condition, no retry
         if not sensor_data or not sensor_data.get('config', {}).get('reachable', False):
-            logger.warning(f"Sensor {sensor_info['location']} is offline, skipping")
+            logger.warning(
+                "Sensor offline",
+                location=sensor_info['location'],
+                device_id=sensor_info['unique_id'],
+                reason="unreachable"
+            )
             return None
         
         # Get temperature from state - intentional skip, no retry
         raw_temp = sensor_data.get('state', {}).get('temperature')
         if raw_temp is None:
-            logger.warning(f"No temperature data for sensor {sensor_info['location']}")
+            logger.warning(
+                "Temperature data missing",
+                location=sensor_info['location'],
+                device_id=sensor_info['unique_id'],
+                reason="no_temperature_state"
+            )
             return None
         
         # Convert and validate temperature
@@ -315,7 +334,12 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
         is_anomalous = is_temperature_anomalous(temp_celsius, config)
         
         if is_anomalous:
-            logger.warning(f"Anomalous temperature reading: {temp_celsius}°C at {sensor_info['location']}")
+            logger.warning(
+                "Temperature anomaly detected",
+                temperature_celsius=temp_celsius,
+                location=sensor_info['location'],
+                device_id=sensor_info['unique_id']
+            )
         
         # Build reading dictionary
         reading = {
@@ -323,6 +347,7 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
             'device_id': f"hue:{sensor_info['unique_id']}",
             'temperature_celsius': temp_celsius,
             'location': sensor_info['location'],
+            'name': sensor_info['location'],
             'device_type': 'hue_sensor',
             'is_anomalous': is_anomalous,
         }
@@ -346,11 +371,23 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
         
     except TransientError as e:
         # Retry exhaustion - log and continue to next sensor
-        logger.error(f"Retry exhausted for sensor {sensor_info['location']}: {e}")
+        logger.error(
+            "Retry exhausted",
+            location=sensor_info['location'],
+            device_id=sensor_info['unique_id'],
+            error_type=type(e).__name__,
+            error_message=str(e)
+        )
         return None
     except Exception as e:
         # Permanent errors or unexpected failures - log and return None
-        logger.error(f"Failed to collect from sensor {sensor_info['location']}: {e}")
+        logger.error(
+            "Collection failed",
+            location=sensor_info['location'],
+            device_id=sensor_info['unique_id'],
+            error_type=type(e).__name__,
+            error_message=str(e)
+        )
         return None
 
 
@@ -371,7 +408,12 @@ def collect_all_readings(bridge: Bridge, config: dict) -> List[Dict]:
     sensors = discover_sensors(bridge, config)
     
     if not sensors:
-        logger.warning("No temperature sensors found")
+        logger.warning(
+            "Discovery complete",
+            sensor_count=0,
+            temperature_sensors=0,
+            reason="no_sensors_found"
+        )
         return []
     
     readings = []
@@ -409,7 +451,14 @@ def collect_all_readings(bridge: Bridge, config: dict) -> List[Dict]:
                 
                 if reading:
                     readings.append(reading)
-                    logger.info(f"✓ Collected: {sensor_info['location']} = {reading['temperature_celsius']:.2f}°C")
+                    logger.info(
+                        f"Collected: {sensor_info['location']}",
+                        device_id=reading['device_id'],
+                        location=reading['location'],
+                        temperature_celsius=reading['temperature_celsius'],
+                        battery_level=reading.get('battery_level'),
+                        is_anomalous=reading.get('is_anomalous', False)
+                    )
                     break  # Success, no need to retry
                 else:
                     # None means sensor offline or no data - intentional skip, don't retry
@@ -460,6 +509,7 @@ def store_readings(readings: List[Dict], config: dict):
     success_count = 0
     duplicate_count = 0
     error_count = 0
+    start_time = time.time()
     
     for reading in readings:
         try:
@@ -475,7 +525,15 @@ def store_readings(readings: List[Dict], config: dict):
     
     db.close()
     
-    logger.info(f"Storage complete: {success_count} stored, {duplicate_count} duplicates, {error_count} errors")
+    duration_ms = int((time.time() - start_time) * 1000)
+    
+    logger.info(
+        "Readings stored",
+        readings_count=success_count,
+        duplicates=duplicate_count,
+        errors=error_count,
+        duration_ms=duration_ms
+    )
 
 
 def main():
@@ -532,97 +590,85 @@ Examples:
     
     # Execute requested action
     if args.discover:
-        logger.info("=" * 70)
-        logger.info("TEMPERATURE SENSOR DISCOVERY")
-        logger.info("=" * 70)
         sensors = discover_sensors(bridge, config)
         
         if sensors:
-            print("\n" + "=" * 80)
-            print("🌡️  DISCOVERED TEMPERATURE SENSORS")
-            print("=" * 80 + "\n")
-            for i, sensor in enumerate(sensors, 1):
-                status_icon = "✅" if sensor['is_reachable'] else "⚠️"
-                battery = sensor['battery_level'] if sensor['battery_level'] else None
-                
-                # Color and status
-                if sensor['is_reachable']:
-                    status = "Online"
-                else:
-                    status = "Offline"
-                
-                # Battery color
-                if battery:
-                    if battery >= 75:
-                        batt_emoji = "🟢"
-                    elif battery >= 50:
-                        batt_emoji = "🟡"
-                    else:
-                        batt_emoji = "🔴"
-                    battery_str = f"{batt_emoji} {battery}%"
-                else:
-                    battery_str = "N/A"
-                
-                print(f"{status_icon} Sensor {i}: {sensor['location']}")
-                print(f"   Status: {status}")
-                print(f"   Device ID: {sensor['unique_id'][:20]}...")
-                print(f"   Model: {sensor['model_id']}")
-                print(f"   Battery: {battery_str}")
-                print()
-            
-            print("=" * 80)
-            print(f"📊 Total: {len(sensors)} sensor(s) found\n")
+            logger.info(f"Discovered {len(sensors)} temperature sensor(s)", sensor_count=len(sensors))
+        else:
+            logger.warning("No temperature sensors discovered")
         
     elif args.collect_once:
-        logger.info("=" * 70)
-        logger.info("SINGLE COLLECTION CYCLE")
-        logger.info("=" * 70)
+        logger.info("Starting single collection cycle")
+        start_time = time.time()
         readings = collect_all_readings(bridge, config)
-        
-        # Pretty print results
-        print("\n" + "=" * 80)
-        print("📈 COLLECTION RESULTS")
-        print("=" * 80 + "\n")
+        cycle_duration_ms = int((time.time() - start_time) * 1000)
         
         if readings:
+            devices_data = []
             for reading in readings:
-                anomaly_icon = "⚠️" if reading.get('is_anomalous') else "✅"
                 temp = reading.get('temperature_celsius', 'N/A')
                 location = reading.get('location', 'Unknown')
                 battery = reading.get('battery_level')
                 
-                print(f"{anomaly_icon} {location}: {temp:.2f}°C", end="")
-                if battery:
-                    print(f" [Battery: {battery}%]", end="")
-                print()
+                devices_data.append({
+                    "name": location,
+                    "temp": temp,
+                    "battery": battery
+                })
             
-            print(f"\n✨ Collected {len(readings)} reading(s)")
+            # Log with structured metadata
+            logger.success(
+                "Collection completed successfully",
+                readings_count=len(readings),
+                devices=devices_data,
+                total_cycle_ms=cycle_duration_ms,
+                status="success"
+            )
+        else:
+            logger.warning(
+                "Collection completed with no readings",
+                readings_count=0,
+                total_cycle_ms=cycle_duration_ms,
+                status="partial"
+            )
         
-        print("\n" + "=" * 80)
         store_readings(readings, config)
         
     elif args.continuous:
-        logger.info("=" * 70)
-        logger.info("CONTINUOUS COLLECTION MODE")
-        logger.info("=" * 70)
+        logger.info("Starting continuous collection")
         
         hue_config = config.get('collectors', {}).get('hue', {})
         interval = hue_config.get('collection_interval', 300)
         
         logger.info(f"Collection interval: {interval} seconds ({interval/60:.1f} minutes)")
-        logger.info("Press Ctrl+C to stop")
-        logger.info("=" * 70)
         
         try:
+            cycle_count = 0
             while True:
+                cycle_count += 1
+                start_time = time.time()
                 readings = collect_all_readings(bridge, config)
+                cycle_duration_ms = int((time.time() - start_time) * 1000)
                 store_readings(readings, config)
+                
+                # Log cycle completion with metadata
+                logger.info(
+                    f"Continuous cycle {cycle_count} completed",
+                    cycle_number=cycle_count,
+                    readings_count=len(readings) if readings else 0,
+                    cycle_duration_ms=cycle_duration_ms,
+                    interval_seconds=interval
+                )
                 
                 logger.info(f"Waiting {interval} seconds until next collection...")
                 time.sleep(interval)
                 
         except KeyboardInterrupt:
-            logger.info("\nCollection stopped by user")
+            logger.info(
+                "\nCollection stopped by user",
+                cycles_completed=cycle_count,
+                final_timestamp=time.strftime('%Y-%m-%d %H:%M:%S')
+            )
     
     else:
         parser.print_help()

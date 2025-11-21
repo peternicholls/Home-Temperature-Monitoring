@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS readings (
     device_id TEXT NOT NULL,
     temperature_celsius REAL NOT NULL,
     location TEXT NOT NULL,
+    name TEXT,
     device_type TEXT NOT NULL CHECK(device_type IN ('hue_sensor', 'nest_thermostat', 'weather_api', 'alexa_aqm', 'amazon_aqm')),
     is_anomalous BOOLEAN DEFAULT 0,
     humidity_percent REAL CHECK(humidity_percent IS NULL OR (humidity_percent >= 0 AND humidity_percent <= 100)),

@@ -464,6 +464,7 @@ class AmazonAQMCollector:
             'device_id': device_id,
             'temperature_celsius': readings.get('temperature_celsius'),  # Required
             'location': location,
+            'name': location,
             'device_type': 'alexa_aqm',
             'humidity_percent': readings.get('humidity_percent'),  # Optional
             'pm25_ugm3': readings.get('pm25_ugm3'),  # Particulate matter (optional)

@@ -138,8 +138,12 @@ class LogParser:
 
         # Calculate warning statistics
         warnings = self.filter_by_level("WARNING")
+        warning_reasons = Counter(e.get("reason") for e in warnings if e.get("reason"))
+        warning_messages = Counter(e.get("message") for e in warnings)
         stats["warnings"] = {
             "total": len(warnings),
+            "by_reason": dict(warning_reasons),
+            "by_message": dict(warning_messages),
         }
 
         return stats
@@ -208,6 +212,10 @@ class LogParser:
         warnings = stats.get("warnings", {})
         print("WARNINGS")
         print(f"  Total Warnings:  {warnings.get('total', 0)}")
+        if warnings.get("by_reason"):
+            print("  By Reason:")
+            for reason, count in sorted(warnings.get("by_reason", {}).items(), key=lambda x: -x[1]):
+                print(f"    {reason}: {count}")
         print()
 
         # Log level breakdown
@@ -234,33 +242,57 @@ class LogParser:
 
 # Example usage for testing
 if __name__ == "__main__":
-    # Create sample log entries for testing
-    log_file = Path("/tmp/test_logs.jsonl")
+    import sys
+    
+    # Support multiple log files as command-line arguments
+    if len(sys.argv) > 1:
+        # Real usage: python log_parser.py logs/hue_scheduled.log logs/amazon_scheduled.log
+        parsers = []
+        all_entries = []
+        
+        for log_file_path in sys.argv[1:]:
+            if Path(log_file_path).exists():
+                parser = LogParser(log_file_path)
+                parsers.append(parser)
+                all_entries.extend(parser.entries)
+        
+        if not all_entries:
+            print("No log entries found in specified files")
+            sys.exit(0)
+        
+        # Create a combined parser with all entries
+        combined_parser = LogParser.__new__(LogParser)
+        combined_parser.log_file = Path("combined")
+        combined_parser.entries = sorted(all_entries, key=lambda x: x.get('timestamp', ''))
+        combined_parser.print_report()
+    else:
+        # Test mode: Create sample log entries for testing
+        log_file = Path("/tmp/test_logs.jsonl")
 
-    sample_logs = [
-        '{"timestamp":"2025-11-21T06:15:00.000Z","level":"INFO","component":"runner_script","message":"Starting Hue collection cycle","cycle_id":"hue-1"}',
-        '{"timestamp":"2025-11-21T06:15:01.234Z","level":"INFO","component":"hue_collector","message":"Connected to Hue Bridge","bridge_ip":"192.168.1.105","duration_ms":1234}',
-        '{"timestamp":"2025-11-21T06:15:02.500Z","level":"INFO","component":"hue_collector","message":"Discovered temperature sensors","sensor_count":26,"temperature_sensors":2,"device_ids":["Utility","Hall"],"duration_ms":200}',
-        '{"timestamp":"2025-11-21T06:15:03.800Z","level":"SUCCESS","component":"hue_collector","message":"Collection completed successfully","readings_count":2,"duration_ms":800,"total_cycle_ms":3800,"status":"success"}',
-        '{"timestamp":"2025-11-21T06:15:04.200Z","level":"INFO","component":"storage_manager","message":"Readings stored","readings_count":2,"duplicates":0,"errors":0,"duration_ms":400}',
-        '{"timestamp":"2025-11-21T06:15:05.000Z","level":"INFO","component":"runner_script","message":"Collection cycle complete","cycle_id":"hue-1","status":"success","total_duration_ms":5000,"readings_stored":2}',
-    ]
+        sample_logs = [
+            '{"timestamp":"2025-11-21T06:15:00.000Z","level":"INFO","component":"runner_script","message":"Starting Hue collection cycle","cycle_id":"hue-1"}',
+            '{"timestamp":"2025-11-21T06:15:01.234Z","level":"INFO","component":"hue_collector","message":"Connected to Hue Bridge","bridge_ip":"192.168.1.105","duration_ms":1234}',
+            '{"timestamp":"2025-11-21T06:15:02.500Z","level":"INFO","component":"hue_collector","message":"Discovered temperature sensors","sensor_count":26,"temperature_sensors":2,"device_ids":["Utility","Hall"],"duration_ms":200}',
+            '{"timestamp":"2025-11-21T06:15:03.800Z","level":"SUCCESS","component":"hue_collector","message":"Collection completed successfully","readings_count":2,"duration_ms":800,"total_cycle_ms":3800,"status":"success"}',
+            '{"timestamp":"2025-11-21T06:15:04.200Z","level":"INFO","component":"storage_manager","message":"Readings stored","readings_count":2,"duplicates":0,"errors":0,"duration_ms":400}',
+            '{"timestamp":"2025-11-21T06:15:05.000Z","level":"INFO","component":"runner_script","message":"Collection cycle complete","cycle_id":"hue-1","status":"success","total_duration_ms":5000,"readings_stored":2}',
+        ]
 
-    with open(log_file, "w") as f:
-        f.write("\n".join(sample_logs))
+        with open(log_file, "w") as f:
+            f.write("\n".join(sample_logs))
 
-    # Test parser
-    parser = LogParser(str(log_file))
-    print(f"Loaded {len(parser.entries)} log entries")
-    print()
+        # Test parser
+        parser = LogParser(str(log_file))
+        print(f"Loaded {len(parser.entries)} log entries")
+        print()
 
-    # Test filtering
-    errors = parser.filter_by_level("ERROR")
-    print(f"Errors: {len(errors)}")
+        # Test filtering
+        errors = parser.filter_by_level("ERROR")
+        print(f"Errors: {len(errors)}")
 
-    hue_logs = parser.filter_by_component("hue_collector")
-    print(f"Hue collector logs: {len(hue_logs)}")
-    print()
+        hue_logs = parser.filter_by_component("hue_collector")
+        print(f"Hue collector logs: {len(hue_logs)}")
+        print()
 
-    # Print report
-    parser.print_report()
+        # Print report
+        parser.print_report()

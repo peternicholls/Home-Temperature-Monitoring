@@ -1,4 +1,4 @@
-.PHONY: help setup clean auth auth-ip discover collect-once continuous aqm-setup aqm-discover aqm-collect aqm-continuous aqm-test web-start web-stop db-reset db-query db-view db-stats logs logs-tail logs-clear test test-discover test-full test-24hour-setup test-24hour-stop test-24hour-verify collection-init collection-start collection-stop collection-status collection-logs collection-uninstall lint format health-check
+.PHONY: help setup clean auth auth-ip discover collect-once continuous aqm-setup aqm-discover aqm-collect aqm-continuous aqm-test web-start web-stop db-reset db-query db-view db-stats logs logs-tail logs-clear test test-discover test-full test-24hour-setup test-24hour-stop test-24hour-verify collection-init collection-start collection-stop collection-status collection-logs collection-uninstall log-view log-errors log-stats log-json lint format health-check
 
 # Colors for output
 BLUE := \033[0;34m
@@ -59,6 +59,12 @@ help: ## Show this help message
 	@echo "  make logs           - Show recent log entries"
 	@echo "  make logs-tail      - Follow logs in real-time (Ctrl+C to stop)"
 	@echo "  make logs-clear     - Clear all log files"
+	@echo ""
+	@echo "$(GREEN)Structured Log Analysis:$(NC)"
+	@echo "  make log-view       - View structured JSON logs with colors (jq formatted)"
+	@echo "  make log-errors     - Filter and show only ERROR entries"
+	@echo "  make log-stats      - Generate summary statistics from logs"
+	@echo "  make log-json       - Pretty-print raw JSON logs (interactive pager)"
 	@echo ""
 	@echo "$(GREEN)Testing:$(NC)"
 	@echo "  make test           - Quick test (just collect once)"
@@ -184,11 +190,11 @@ db-query: ## Run custom SQL query (usage: make db-query SQL="SELECT * FROM readi
 
 db-view: ## View recent readings in database
 	@echo "$(BLUE)Recent readings in database:$(NC)"
-	. venv/bin/activate && python3 -c "import sqlite3; conn = sqlite3.connect('data/readings.db'); cursor = conn.execute('SELECT device_id, device_type, temperature_celsius, humidity_percent, pm25_ugm3, voc_ppb, co_ppm, iaq_score, timestamp FROM readings ORDER BY timestamp DESC LIMIT 20'); print(f\"{'Device ID':<40} {'Type':<12} {'Temp':<8} {'Hum%':<8} {'PM2.5':<8} {'VOC':<8} {'CO':<8} {'IAQ':<8} {'Timestamp':<20}\"); print('-' * 150); [print(f\"{d:<40} {dt:<12} {t:<8.1f} {h if h else '-':<8} {p if p else '-':<8} {v if v else '-':<8} {c if c else '-':<8} {i if i else '-':<8} {ts[:19]:<20}\") for d, dt, t, h, p, v, c, i, ts in cursor.fetchall()]; conn.close()"
+	. venv/bin/activate && python3 -c "import sqlite3; conn = sqlite3.connect('data/readings.db'); cursor = conn.execute('SELECT device_id, name, device_type, temperature_celsius, humidity_percent, pm25_ugm3, voc_ppb, co_ppm, iaq_score, timestamp FROM readings ORDER BY timestamp DESC LIMIT 20'); print(f\"{'Device ID':<40} {'Name':<15} {'Type':<12} {'Temp':<8} {'Hum%':<8} {'PM2.5':<8} {'VOC':<8} {'CO':<8} {'IAQ':<8} {'Timestamp':<20}\"); print('-' * 165); [print(f\"{d:<40} {n if n else '-':<15} {dt:<12} {t:<8.1f} {h if h else '-':<8} {p if p else '-':<8} {v if v else '-':<8} {c if c else '-':<8} {i if i else '-':<8} {ts[:19]:<20}\") for d, n, dt, t, h, p, v, c, i, ts in cursor.fetchall()]; conn.close()"
 
 db-stats: ## Show database statistics
 	@echo "$(BLUE)Database Statistics:$(NC)"
-	. venv/bin/activate && python3 -c "import sqlite3; conn = sqlite3.connect('data/readings.db'); cursor = conn.execute('SELECT COUNT(*) FROM readings'); print(f'Total readings: {cursor.fetchone()[0]}\n'); cursor = conn.execute('SELECT device_type, COUNT(*) FROM readings GROUP BY device_type'); print('Readings by device type:'); [print(f'  {dt}: {c}') for dt, c in cursor.fetchall()]; print(); cursor = conn.execute('SELECT device_id, device_type, COUNT(*) as count, MIN(temperature_celsius) as min_temp, MAX(temperature_celsius) as max_temp, AVG(temperature_celsius) as avg_temp FROM readings GROUP BY device_id, device_type ORDER BY device_id'); print(f\"{'Device ID':<45} {'Type':<12} {'Count':<8} {'Min°C':<8} {'Max°C':<8} {'Avg°C':<8}\"); print('-' * 95); [print(f\"{d:<45} {dt:<12} {c:<8} {mi:<8.1f} {ma:<8.1f} {a:<8.1f}\") for d, dt, c, mi, ma, a in cursor.fetchall()]; conn.close()"
+	. venv/bin/activate && python3 -c "import sqlite3; conn = sqlite3.connect('data/readings.db'); cursor = conn.execute('SELECT COUNT(*) FROM readings'); print(f'Total readings: {cursor.fetchone()[0]}\\n'); cursor = conn.execute('SELECT device_type, COUNT(*) FROM readings GROUP BY device_type'); print('Readings by device type:'); [print(f'  {dt}: {c}') for dt, c in cursor.fetchall()]; print(); cursor = conn.execute('SELECT device_id, name, device_type, COUNT(*) as count, MIN(temperature_celsius) as min_temp, MAX(temperature_celsius) as max_temp, AVG(temperature_celsius) as avg_temp FROM readings GROUP BY device_id, name, device_type ORDER BY device_type, name'); print(f\"{'Device ID':<45} {'Name':<15} {'Type':<12} {'Count':<8} {'Min°C':<8} {'Max°C':<8} {'Avg°C':<8}\"); print('-' * 110); [print(f\"{d:<45} {n if n else '-':<15} {dt:<12} {c:<8} {mi:<8.1f} {ma:<8.1f} {a:<8.1f}\") for d, n, dt, c, mi, ma, a in cursor.fetchall()]; conn.close()"
 
 # Logs
 logs: ## Show recent log entries
@@ -278,6 +284,27 @@ collection-status: ## Show scheduled collection status
 collection-logs: ## View scheduled collection logs
 	@echo "$(BLUE)Following Hue scheduled logs (Ctrl+C to stop)...$(NC)"
 	@tail -f logs/hue_scheduled.log 2>/dev/null || echo "  (No logs yet - run: make collection-start)"
+
+# Structured Log Analysis (Phase 5)
+log-view: ## View structured JSON logs with pretty-printing (jq colors)
+	@echo "$(BLUE)Viewing structured logs (both Hue and Amazon combined):$(NC)"
+	@echo ""
+	@(cat logs/hue_scheduled.log logs/amazon_scheduled.log 2>/dev/null | grep '^{' | sort) | jq -C '.' | tail -50 2>/dev/null || echo "$(YELLOW)No logs found. Run 'make collection-start' to begin collecting.$(NC)"
+
+log-errors: ## Filter and show only ERROR level entries from structured logs
+	@echo "$(BLUE)Error entries from structured logs:$(NC)"
+	@echo ""
+	@(cat logs/hue_scheduled.log logs/amazon_scheduled.log 2>/dev/null | grep '^{' | sort) | jq -C 'select(.level == "ERROR")' 2>/dev/null | tail -50 || echo "$(YELLOW)No errors found!$(NC)"
+
+log-stats: ## Generate summary statistics from structured logs
+	@echo "$(BLUE)Log Analysis & Statistics:$(NC)"
+	@echo ""
+	@. venv/bin/activate && python3 source/utils/log_parser.py logs/hue_scheduled.log logs/amazon_scheduled.log 2>/dev/null || echo "$(YELLOW)No logs available yet.$(NC)"
+
+log-json: ## Pretty-print raw JSON logs
+	@echo "$(BLUE)Raw structured logs (pretty-printed):$(NC)"
+	@echo ""
+	@(cat logs/hue_scheduled.log logs/amazon_scheduled.log 2>/dev/null | grep '^{' | sort) | jq 'select(.)' -C 2>/dev/null | head -100 || echo "$(YELLOW)No logs found.$(NC)"
 
 collection-uninstall: ## Remove launchd agents completely
 	@bash scripts/launchd-cleanup.sh

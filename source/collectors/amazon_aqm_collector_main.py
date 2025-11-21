@@ -28,13 +28,10 @@ from source.collectors.amazon_collector import AmazonAQMCollector
 from source.collectors.amazon_auth import validate_amazon_cookies, check_cookie_expiration
 from source.storage.manager import DatabaseManager
 from source.config.loader import load_config
+from source.utils.structured_logger import StructuredLogger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Configure structured logging with fixed component name
+logger = StructuredLogger("amazon_aqm_collector")
 
 
 async def discover_devices(cookies: dict, config: dict):
@@ -45,39 +42,37 @@ async def discover_devices(cookies: dict, config: dict):
         cookies: Amazon authentication cookies
         config: Configuration dictionary
     """
-    logger.info("=" * 80)
-    logger.info("Device Discovery Mode")
-    logger.info("=" * 80)
-    
     try:
+        start_time = time.time()
         collector = AmazonAQMCollector(cookies, config)
         devices = await collector.list_devices()
+        discovery_duration_ms = int((time.time() - start_time) * 1000)
         
         if not devices:
-            logger.warning("No Amazon Air Quality Monitors found")
-            logger.info("\nPossible reasons:")
-            logger.info("  1. No AQM devices registered to this account")
-            logger.info("  2. Cookies are expired (try re-authenticating)")
-            logger.info("  3. Device is offline or not connected to WiFi")
+            logger.warning(
+                "Device discovery complete",
+                device_count=0,
+                reason="no_devices_found",
+                discovery_duration_ms=discovery_duration_ms
+            )
             return
         
-        logger.info(f"\n✅ Found {len(devices)} device(s):\n")
+        device_ids = [d.get('device_id', 'unknown') for d in devices]
         
-        for i, device in enumerate(devices, 1):
-            logger.info(f"Device {i}:")
-            logger.info(f"  Device ID:     {device['device_id']}")
-            logger.info(f"  Entity ID:     {device['entity_id']}")
-            logger.info(f"  Serial Number: {device['device_serial']}")
-            logger.info(f"  Name:          {device.get('friendly_name', 'Unknown')}")
-            logger.info(f"  Capabilities:  {len(device.get('capabilities', []))} capabilities")
-            logger.info("")
-        
-        logger.info("=" * 80)
-        logger.info("Device discovery complete")
-        logger.info("=" * 80)
+        logger.success(
+            "Device discovery complete",
+            device_count=len(devices),
+            device_ids=device_ids,
+            discovery_duration_ms=discovery_duration_ms
+        )
         
     except Exception as e:
-        logger.error(f"Error during device discovery: {e}", exc_info=True)
+        logger.error(
+            f"Error during device discovery: {e}",
+            error_code="DISCOVERY_FAILED",
+            error_message=str(e),
+            exc_info=True
+        )
 
 
 async def collect_once(cookies: dict, config: dict, db_manager: DatabaseManager):
@@ -89,23 +84,32 @@ async def collect_once(cookies: dict, config: dict, db_manager: DatabaseManager)
         config: Configuration dictionary
         db_manager: DatabaseManager instance
     """
-    logger.info("=" * 80)
-    logger.info("Single Collection Mode")
-    logger.info("=" * 80)
-    
     try:
+        start_time = time.time()
         collector = AmazonAQMCollector(cookies, config)
         success = await collector.collect_and_store(db_manager)
+        cycle_duration_ms = int((time.time() - start_time) * 1000)
         
         if success:
-            logger.info("\n✅ Collection successful - readings stored in database")
+            logger.success(
+                "Collection completed successfully",
+                cycle_duration_ms=cycle_duration_ms,
+                status="success"
+            )
         else:
-            logger.warning("\n⚠️  Collection failed or no new data")
-        
-        logger.info("=" * 80)
+            logger.warning(
+                "Collection completed with no new data",
+                cycle_duration_ms=cycle_duration_ms,
+                status="partial"
+            )
         
     except Exception as e:
-        logger.error(f"Error during collection: {e}", exc_info=True)
+        logger.error(
+            f"Collection failed: {e}",
+            error_code="COLLECTION_FAILED",
+            error_message=str(e),
+            exc_info=True
+        )
 
 
 async def collect_continuous(cookies: dict, config: dict, db_manager: DatabaseManager):
@@ -117,21 +121,15 @@ async def collect_continuous(cookies: dict, config: dict, db_manager: DatabaseMa
         config: Configuration dictionary
         db_manager: DatabaseManager instance
     """
-    logger.info("=" * 80)
-    logger.info("Continuous Collection Mode")
-    logger.info("=" * 80)
-    
     amazon_config = config.get('amazon_aqm', {})
     collection_interval = amazon_config.get('collection_interval', 300)  # Default 5 minutes
     retry_attempts = amazon_config.get('retry_attempts', 3)
     retry_backoff_base = amazon_config.get('retry_backoff_base', 1.0)
     
-    logger.info(f"Collection interval: {collection_interval} seconds ({collection_interval / 60:.1f} minutes)")
-    logger.info(f"Retry attempts: {retry_attempts}")
-    logger.info(f"Starting continuous collection... (Press Ctrl+C to stop)")
-    logger.info("=" * 80)
+    logger.info(f"Starting continuous collection, interval {collection_interval}s")
     
     cycle_count = 0
+    total_errors = 0
     
     try:
         while True:
@@ -148,10 +146,22 @@ async def collect_continuous(cookies: dict, config: dict, db_manager: DatabaseMa
                     success = await collector.collect_and_store(db_manager)
                     
                     if success:
-                        logger.info(f"✅ Cycle {cycle_count} complete - readings stored")
+                        cycle_duration_ms = int((time.time() - cycle_start) * 1000)
+                        logger.info(
+                            f"Cycle {cycle_count} complete - readings stored",
+                            cycle_number=cycle_count,
+                            cycle_duration_ms=cycle_duration_ms,
+                            attempt_number=attempt,
+                            status="success"
+                        )
                         break
                     else:
-                        logger.warning(f"⚠️  Cycle {cycle_count} - no new data (attempt {attempt}/{retry_attempts})")
+                        logger.warning(
+                            f"Cycle {cycle_count} - no new data (attempt {attempt}/{retry_attempts})",
+                            cycle_number=cycle_count,
+                            attempt_number=attempt,
+                            status="no_data"
+                        )
                         
                         if attempt < retry_attempts:
                             wait_time = retry_backoff_base * (2 ** (attempt - 1))
@@ -159,14 +169,26 @@ async def collect_continuous(cookies: dict, config: dict, db_manager: DatabaseMa
                             await asyncio.sleep(wait_time)
                 
                 except Exception as e:
-                    logger.error(f"Error in collection attempt {attempt}: {e}")
+                    total_errors += 1
+                    logger.error(
+                        f"Error in collection attempt {attempt}: {e}",
+                        cycle_number=cycle_count,
+                        attempt_number=attempt,
+                        error_code="COLLECTION_ATTEMPT_FAILED",
+                        error_message=str(e)
+                    )
                     
                     if attempt < retry_attempts:
                         wait_time = retry_backoff_base * (2 ** (attempt - 1))
                         logger.info(f"Retrying in {wait_time}s...")
                         await asyncio.sleep(wait_time)
                     else:
-                        logger.error(f"❌ Cycle {cycle_count} failed after {retry_attempts} attempts")
+                        logger.error(
+                            f"Cycle {cycle_count} failed after {retry_attempts} attempts",
+                            cycle_number=cycle_count,
+                            max_attempts=retry_attempts,
+                            status="failed"
+                        )
             
             # Calculate time until next collection
             cycle_duration = time.time() - cycle_start
@@ -177,13 +199,20 @@ async def collect_continuous(cookies: dict, config: dict, db_manager: DatabaseMa
                 logger.info(f"Next collection at {next_collection.strftime('%H:%M:%S')} (in {sleep_time:.0f}s)")
                 await asyncio.sleep(sleep_time)
             else:
-                logger.warning(f"Collection took {cycle_duration:.1f}s (exceeds interval of {collection_interval}s)")
+                logger.warning(
+                    f"Collection took {cycle_duration:.1f}s (exceeds interval of {collection_interval}s)",
+                    cycle_duration_ms=int(cycle_duration * 1000),
+                    interval_seconds=collection_interval
+                )
     
     except KeyboardInterrupt:
-        logger.info("\n\n" + "=" * 80)
-        logger.info("Continuous collection stopped by user")
+        logger.warning(
+            "Continuous collection stopped by user",
+            cycles_completed=cycle_count,
+            total_errors=total_errors,
+            final_timestamp=time.strftime('%Y-%m-%d %H:%M:%S')
+        )
         logger.info(f"Total cycles completed: {cycle_count}")
-        logger.info("=" * 80)
 
 
 async def main():
@@ -250,8 +279,11 @@ Examples:
     # Check cookie expiration
     is_expired, warning = check_cookie_expiration(cookies)
     if is_expired:
-        logger.warning(f"\n⚠️  {warning}")
-        logger.warning("Consider re-authenticating soon to avoid collection failures\n")
+        logger.warning(
+            "Cookie expiration warning",
+            is_expired=True,
+            warning_message=warning
+        )
     
     # Normalize config structure - move collectors.amazon_aqm to amazon_aqm
     if 'collectors' in config and 'amazon_aqm' in config['collectors']:

@@ -44,8 +44,9 @@ class StructuredLogger:
         entry.update(metadata)
 
         # Output as single-line JSON for log parsing
-        json.dump(entry, sys.stdout, separators=(',', ':'))
-        print()  # Newline after each entry
+        # Use separators to minimize size, ensure_ascii=False for unicode support
+        json_line = json.dumps(entry, separators=(',', ':'), ensure_ascii=False)
+        print(json_line)
         sys.stdout.flush()  # Ensure immediate output
 
     def debug(self, message: str, **metadata) -> None:
