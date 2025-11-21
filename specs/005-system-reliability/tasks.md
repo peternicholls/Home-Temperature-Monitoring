@@ -307,9 +307,9 @@ This project uses:
 
 ### 24-Hour Continuous Operation Test
 
-- [ ] T101 Run both Hue and Amazon AQM collectors concurrently for 24 hours monitoring for database locked errors, retry behavior, log rotation, data gaps, and resource usage
-- [ ] T102 Verify SC-001: 100% of readings stored with zero data loss
-- [ ] T103 Verify SC-002: 95%+ retry success rate for transient lock scenarios
+- [X] T101 Run both Hue and Amazon AQM collectors concurrently for 24 hours monitoring for database locked errors, retry behavior, log rotation, data gaps, and resource usage
+- [X] T102 Verify SC-001: 100% of readings stored with zero data loss
+- [X] T103 Verify SC-002: 95%+ retry success rate for transient lock scenarios
 - [ ] T104 Verify SC-008: 7-day unattended operation without manual intervention (extended from 24-hour test)
 
 ### Failure Mode Simulation Tests
@@ -355,59 +355,59 @@ This project uses:
 
 **Test First**:
 
-- [ ] T127 [P] [US6] Create tests/test_device_registry.py with test_device_registry_table_creation
-- [ ] T128 [P] [US6] Create test_device_insert_with_name_and_location in tests/test_device_registry.py
-- [ ] T129 [P] [US6] Create test_device_unique_constraint in tests/test_device_registry.py
-- [ ] T130 [P] [US6] Create test_device_name_update in tests/test_device_registry.py
-- [ ] T131 [P] [US6] Create test_device_location_update in tests/test_device_registry.py
+- [X] T127 [P] [US6] Create tests/test_device_registry.py with test_device_registry_table_creation
+- [X] T128 [P] [US6] Create test_device_insert_with_name_and_location in tests/test_device_registry.py
+- [X] T129 [P] [US6] Create test_device_unique_constraint in tests/test_device_registry.py
+- [X] T130 [P] [US6] Create test_device_name_update in tests/test_device_registry.py
+- [X] T131 [P] [US6] Create test_device_location_update in tests/test_device_registry.py
 
 ### Tests for User Story 6 - Device Name Management
 
 **Test First**:
 
-- [ ] T132 [P] [US6] Create tests/test_device_naming.py with test_set_device_name_new_device
-- [ ] T133 [P] [US6] Create test_set_device_name_existing_device in tests/test_device_naming.py
-- [ ] T134 [P] [US6] Create test_amend_device_name_without_history_update in tests/test_device_naming.py
-- [ ] T135 [P] [US6] Create test_amend_device_name_with_recursive_history_update in tests/test_device_naming.py
-- [ ] T136 [P] [US6] Create test_get_device_name_from_registry in tests/test_device_naming.py
-- [ ] T137 [P] [US6] Create test_list_all_devices_with_names in tests/test_device_naming.py
+- [X] T132 [P] [US6] Create tests/test_device_naming.py with test_set_device_name_new_device
+- [X] T133 [P] [US6] Create test_set_device_name_existing_device in tests/test_device_naming.py
+- [X] T134 [P] [US6] Create test_amend_device_name_without_history_update in tests/test_device_naming.py
+- [X] T135 [P] [US6] Create test_amend_device_name_with_recursive_history_update in tests/test_device_naming.py
+- [X] T136 [P] [US6] Create test_get_device_name_from_registry in tests/test_device_naming.py
+- [X] T137 [P] [US6] Create test_list_all_devices_with_names in tests/test_device_naming.py
 
 ### Tests for User Story 6 - Location Auto-Discovery
 
 **Test First**:
 
-- [ ] T138 [P] [US6] Create tests/test_device_location.py with test_extract_location_from_hue_sensor
-- [ ] T139 [P] [US6] Create test_extract_location_from_amazon_aqm_device in tests/test_device_location.py
-- [ ] T140 [P] [US6] Create test_store_location_in_device_registry in tests/test_device_location.py
-- [ ] T141 [P] [US6] Create test_location_propagation_to_readings in tests/test_device_location.py
-- [ ] T142 [P] [US6] Create test_location_override_via_config in tests/test_device_location.py
+- [X] T138 [P] [US6] Create tests/test_device_location.py with test_extract_location_from_hue_sensor
+- [X] T139 [P] [US6] Create test_extract_location_from_amazon_aqm_device in tests/test_device_location.py
+- [X] T140 [P] [US6] Create test_store_location_in_device_registry in tests/test_device_location.py
+- [X] T141 [P] [US6] Create test_location_propagation_to_readings in tests/test_device_location.py
+- [X] T142 [P] [US6] Create test_location_override_via_config in tests/test_device_location.py
 
 ### Tests for User Story 6 - Integration with Collectors
 
 **Test First**:
 
-- [ ] T143 [P] [US6] Create tests/test_device_registry_integration.py with test_hue_collector_uses_device_registry
-- [ ] T144 [P] [US6] Create test_amazon_collector_uses_device_registry in tests/test_device_registry_integration.py
-- [ ] T145 [P] [US6] Create test_readings_include_device_name_and_location in tests/test_device_registry_integration.py
-- [ ] T146 [P] [US6] Create test_unknown_device_auto_registered in tests/test_device_registry_integration.py
+- [X] T143 [P] [US6] Create tests/test_device_registry_integration.py with test_hue_collector_uses_device_registry
+- [X] T144 [P] [US6] Create test_amazon_collector_uses_device_registry in tests/test_device_registry_integration.py
+- [X] T145 [P] [US6] Create test_readings_include_device_name_and_location in tests/test_device_registry_integration.py
+- [X] T146 [P] [US6] Create test_unknown_device_auto_registered in tests/test_device_registry_integration.py
 
 ### Implementation for User Story 6
 
-- [ ] T147 [US6] Create device_registry table in source/storage/schema.py with columns: device_id (PK), device_type, device_name, location, unique_id, model_info, first_seen, last_seen, is_active
-- [ ] T148 [US6] Add database migration support in source/storage/manager.py to create device_registry table for existing databases
-- [ ] T149 [US6] Create source/storage/device_manager.py with functions: register_device(), set_device_name(), amend_device_name(), get_device_name(), list_devices(), update_device_location()
-- [ ] T150 [US6] Implement recursive history update in source/storage/device_manager.py for amend_device_name() to optionally update historical readings with new device name
-- [ ] T151 [US6] Enhance source/collectors/hue_collector.py to register discovered sensors in device_registry and use device names from registry when storing readings
-- [ ] T152 [US6] Enhance source/collectors/amazon_collector.py to register discovered devices in device_registry and use device names from registry when storing readings
-- [ ] T153 [US6] Create CLI command in source/storage/device_manager.py for setting device names: python source/storage/device_manager.py --set-name <device_id> <name>
-- [ ] T154 [US6] Create CLI command in source/storage/device_manager.py for amending device names: python source/storage/device_manager.py --amend-name <device_id> <name> [--recursive]
-- [ ] T155 [US6] Create CLI command in source/storage/device_manager.py for listing devices: python source/storage/device_manager.py --list-devices
+- [X] T147 [US6] Create device_registry table in source/storage/schema.py with columns: device_id (PK), device_type, device_name, location, unique_id, model_info, first_seen, last_seen, is_active
+- [X] T148 [US6] Add database migration support in source/storage/manager.py to create device_registry table for existing databases
+- [X] T149 [US6] Create source/storage/device_manager.py with functions: register_device(), set_device_name(), amend_device_name(), get_device_name(), list_devices(), update_device_location()
+- [X] T150 [US6] Implement recursive history update in source/storage/device_manager.py for amend_device_name() to optionally update historical readings with new device name
+- [X] T151 [US6] Enhance source/collectors/hue_collector.py to register discovered sensors in device_registry and use device names from registry when storing readings
+- [X] T152 [US6] Enhance source/collectors/amazon_collector.py to register discovered devices in device_registry and use device names from registry when storing readings
+- [X] T153 [US6] Create CLI command in source/storage/device_manager.py for setting device names: python source/storage/device_manager.py --set-name <device_id> <name>
+- [X] T154 [US6] Create CLI command in source/storage/device_manager.py for amending device names: python source/storage/device_manager.py --amend-name <device_id> <name> [--recursive]
+- [X] T155 [US6] Create CLI command in source/storage/device_manager.py for listing devices: python source/storage/device_manager.py --list-devices
 
 **Verification**:
 
-- [ ] T156 [US6] Run pytest tests/test_device_registry.py tests/test_device_naming.py tests/test_device_location.py tests/test_device_registry_integration.py and verify all 21 tests pass with 80%+ coverage
-- [ ] T157 [US6] Test device name CLI commands manually: set name for Hue sensor, amend with --recursive, verify readings updated
-- [ ] T158 [US6] Run collection cycle and verify device names appear in output: "✅ Utility: 20.29°C [Battery: 100%]" uses device name from registry
+- [X] T156 [US6] Run pytest tests/test_device_registry.py tests/test_device_naming.py tests/test_device_location.py tests/test_device_registry_integration.py and verify all 21 tests pass with 80%+ coverage
+- [X] T157 [US6] Test device name CLI commands manually: set name for Hue sensor, amend with --recursive, verify readings updated
+- [X] T158 [US6] Run collection cycle and verify device names appear in output: "✅ Utility: 20.29°C [Battery: 100%]" uses device name from registry
 
 **Checkpoint**: At this point, device registry should be fully functional with named devices and automatic location tracking
 
