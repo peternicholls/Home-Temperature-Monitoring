@@ -16,11 +16,11 @@ Usage:
 
 import asyncio
 import argparse
-import logging
 import json
 import time
 import sys
 from pathlib import Path
+from typing import Optional
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -31,7 +31,7 @@ from source.storage.manager import DatabaseManager
 from source.utils.structured_logger import StructuredLogger
 
 # Configure structured logging
-logger = StructuredLogger("nest_via_amazon_collector")
+logger: Optional[StructuredLogger] = None  # Will be initialized in main() with config
 
 
 async def discover_devices(config: dict, secrets: dict) -> bool:
@@ -48,19 +48,23 @@ async def discover_devices(config: dict, secrets: dict) -> bool:
     try:
         cookies = secrets.get('amazon_aqm', {}).get('cookies', {})
         if not cookies:
-            logger.error("No Amazon cookies found in secrets.yaml. Run 'make web-start' first.")
+            if logger:
+                logger.error("No Amazon cookies found in secrets.yaml. Run 'make web-start' first.")
             return False
         
-        collector = NestViaAmazonCollector(cookies, config)
+        collector = NestViaAmazonCollector(cookies, config, logger)
         
-        logger.info("Discovering Nest thermostats via Alexa...")
+        if logger:
+            logger.info("Discovering Nest thermostats via Alexa...")
         devices = await collector.list_devices()
         
         if not devices:
-            logger.warning("No Nest thermostats found")
+            if logger:
+                logger.warning("No Nest thermostats found")
             return False
         
-        logger.info(f"Found {len(devices)} Nest thermostat(s)")
+        if logger:
+            logger.info(f"Found {len(devices)} Nest thermostat(s)")
         print("\n" + "=" * 80)
         print("NEST THERMOSTATS DISCOVERED")
         print("=" * 80)
@@ -83,7 +87,8 @@ async def discover_devices(config: dict, secrets: dict) -> bool:
         return True
         
     except Exception as e:
-        logger.error(f"Discovery failed: {e}", exc_info=True)
+        if logger:
+            logger.error(f"Discovery failed: {e}", exc_info=True)
         return False
 
 
@@ -101,19 +106,22 @@ async def collect_once(config: dict, secrets: dict) -> bool:
     try:
         cookies = secrets.get('amazon_aqm', {}).get('cookies', {})
         if not cookies:
-            logger.error("No Amazon cookies found in secrets.yaml. Run 'make web-start' first.")
+            if logger:
+                logger.error("No Amazon cookies found in secrets.yaml. Run 'make web-start' first.")
             return False
         
         # Initialize collector and database
-        collector = NestViaAmazonCollector(cookies, config)
+        collector = NestViaAmazonCollector(cookies, config, logger)
         db_manager = DatabaseManager(db_path=config.get('database', {}).get('path', 'data/readings.db'))
         
-        logger.info("Starting single Nest collection cycle...")
+        if logger:
+            logger.info("Starting single Nest collection cycle...")
         
         # Discover devices
         devices = await collector.list_devices()
         if not devices:
-            logger.error("No Nest thermostats found")
+            if logger:
+                logger.error("No Nest thermostats found")
             return False
         
         # Collect from each device
@@ -123,44 +131,53 @@ async def collect_once(config: dict, secrets: dict) -> bool:
             device_id = device['device_id']
             friendly_name = device['friendly_name']
             
-            logger.info(f"Collecting from: {friendly_name}")
+            if logger:
+                logger.info(f"Collecting from: {friendly_name}")
             
             # Get readings
             readings = await collector.get_thermostat_readings(appliance_id)
             if not readings:
-                logger.error(f"Failed to get readings from {friendly_name}")
+                if logger:
+                    logger.error(f"Failed to get readings from {friendly_name}")
                 continue
             
             # Validate
             errors = collector.validate_readings(readings)
             if errors:
-                logger.warning(f"Validation warnings for {friendly_name}: {errors}")
+                if logger:
+                    logger.warning(f"Validation warnings for {friendly_name}: {errors}")
             
             # Format for database
             db_reading = collector.format_reading_for_db(device_id, friendly_name, readings, config)
             
             # Log the reading
-            logger.info(f"Reading: {friendly_name}")
-            logger.info(f"  Temperature: {readings.get('temperature_celsius')}°C")
-            logger.info(f"  Mode: {readings.get('thermostat_mode')}")
-            logger.info(f"  Timestamp: {readings.get('timestamp')}")
+            if logger:
+                logger.info(f"Reading: {friendly_name}")
+                logger.info(f"  Temperature: {readings.get('temperature_celsius')}°C")
+                logger.info(f"  Mode: {readings.get('thermostat_mode')}")
+                logger.info(f"  Timestamp: {readings.get('timestamp')}")
             
             # Store in database
             if db_manager.insert_temperature_reading(db_reading):
-                logger.info(f"Stored reading for {friendly_name}")
+                if logger:
+                    logger.info(f"Stored reading for {friendly_name}")
                 success_count += 1
             else:
-                logger.debug(f"Duplicate reading for {friendly_name}, skipped")
+                if logger:
+                    logger.debug(f"Duplicate reading for {friendly_name}, skipped")
         
         if success_count > 0:
-            logger.info(f"Collection successful! Stored {success_count} reading(s)")
+            if logger:
+                logger.info(f"Collection successful! Stored {success_count} reading(s)")
             return True
         else:
-            logger.error("No readings were stored")
+            if logger:
+                logger.error("No readings were stored")
             return False
             
     except Exception as e:
-        logger.error(f"Collection failed: {e}", exc_info=True)
+        if logger:
+            logger.error(f"Collection failed: {e}", exc_info=True)
         return False
 
 
@@ -175,7 +192,8 @@ async def collect_continuous(config: dict, secrets: dict) -> None:
     try:
         cookies = secrets.get('amazon_aqm', {}).get('cookies', {})
         if not cookies:
-            logger.error("No Amazon cookies found in secrets.yaml. Run 'make web-start' first.")
+            if logger:
+                logger.error("No Amazon cookies found in secrets.yaml. Run 'make web-start' first.")
             return
         
         # Get collection interval from config (default 300 seconds = 5 minutes)
@@ -183,24 +201,27 @@ async def collect_continuous(config: dict, secrets: dict) -> None:
         interval = collection_config.get('interval', 300)
         
         # Initialize collector and database
-        collector = NestViaAmazonCollector(cookies, config)
+        collector = NestViaAmazonCollector(cookies, config, logger)
         db_manager = DatabaseManager(db_path=config.get('database', {}).get('path', 'data/readings.db'))
         
-        logger.info(f"Starting continuous Nest collection (interval: {interval}s)...")
-        logger.info("Press Ctrl+C to stop")
+        if logger:
+            logger.info(f"Starting continuous Nest collection (interval: {interval}s)...")
+            logger.info("Press Ctrl+C to stop")
         
         cycle = 0
         while True:
             cycle += 1
-            logger.info(f"\n{'=' * 80}")
-            logger.info(f"Collection Cycle {cycle} - {time.strftime('%Y-%m-%d %H:%M:%S')}")
-            logger.info(f"{'=' * 80}")
+            if logger:
+                logger.info(f"\n{'=' * 80}")
+                logger.info(f"Collection Cycle {cycle} - {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                logger.info(f"{'=' * 80}")
             
             try:
                 # Discover devices
                 devices = await collector.list_devices()
                 if not devices:
-                    logger.warning("No Nest thermostats found, skipping cycle")
+                    if logger:
+                        logger.warning("No Nest thermostats found, skipping cycle")
                     await asyncio.sleep(interval)
                     continue
                 
@@ -214,40 +235,49 @@ async def collect_continuous(config: dict, secrets: dict) -> None:
                     # Get readings
                     readings = await collector.get_thermostat_readings(appliance_id)
                     if not readings:
-                        logger.error(f"Failed to get readings from {friendly_name}")
+                        if logger:
+                            logger.error(f"Failed to get readings from {friendly_name}")
                         continue
                     
                     # Validate
                     errors = collector.validate_readings(readings)
                     if errors:
-                        logger.warning(f"Validation warnings: {errors}")
+                        if logger:
+                            logger.warning(f"Validation warnings: {errors}")
                     
                     # Format for database
                     db_reading = collector.format_reading_for_db(device_id, friendly_name, readings, config)
                     
                     # Store in database
                     if db_manager.insert_temperature_reading(db_reading):
-                        logger.info(f"✓ {friendly_name}: {readings.get('temperature_celsius')}°C ({readings.get('thermostat_mode')})")
+                        if logger:
+                            logger.info(f"✓ {friendly_name}: {readings.get('temperature_celsius')}°C ({readings.get('thermostat_mode')})")
                         success_count += 1
                     else:
-                        logger.debug(f"Duplicate reading for {friendly_name}")
+                        if logger:
+                            logger.debug(f"Duplicate reading for {friendly_name}")
                 
                 if success_count > 0:
-                    logger.info(f"Cycle {cycle} complete: {success_count} reading(s) stored")
+                    if logger:
+                        logger.info(f"Cycle {cycle} complete: {success_count} reading(s) stored")
                 else:
-                    logger.warning(f"Cycle {cycle}: No readings stored")
+                    pass  # Already logged warnings above
                 
             except Exception as e:
-                logger.error(f"Collection cycle error: {e}", exc_info=True)
+                if logger:
+                    logger.error(f"Cycle {cycle} error: {e}", exc_info=True)
             
             # Wait for next cycle
-            logger.info(f"Next collection in {interval}s...")
+            if logger:
+                logger.info(f"Next collection in {interval}s...")
             await asyncio.sleep(interval)
             
     except KeyboardInterrupt:
-        logger.info("Collection stopped by user")
+        if logger:
+            logger.info("Collection stopped by user")
     except Exception as e:
-        logger.error(f"Continuous collection failed: {e}", exc_info=True)
+        if logger:
+            logger.error(f"Continuous collection failed: {e}", exc_info=True)
 
 
 def main():
@@ -286,8 +316,13 @@ Examples:
         config = load_config()
         secrets = load_secrets()
     except Exception as e:
-        logger.error(f"Failed to load configuration: {e}")
+        print(f"ERROR: Failed to load configuration: {e}")
         sys.exit(1)
+    
+    # Configure logger with config
+    config['component'] = 'nest_via_amazon_collector'
+    global logger
+    logger = StructuredLogger(config)
     
     # Determine which action to take
     if args.discover:

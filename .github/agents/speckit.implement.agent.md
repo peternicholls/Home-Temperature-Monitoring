@@ -145,26 +145,21 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Report final status with summary of completed work
 
 10. **Post-Implementation Documentation** (REQUIRED):
-    - **Implementation Report**: Guide user to create report:
+    - **Implementation Report**: Follow the instructions exactly in `.specify/templates/commands/report-writing-process.md` to create a comprehensive implementation report.
+    - **Steps**:
       - Run: `bash .specify/scripts/bash/write-implementation-report.sh`
       - Fill all required sections (Executive Summary, Key Achievements, etc.)
-      - Include 3-7 detailed "Lessons Learned" with **Title**: Description format
+      - Include 3-7 detailed "Lessons Learned" with specific, actionable content
       - Validate: `bash .specify/scripts/bash/validate-report.sh <report-path>`
     
     - **Lessons Learned Extraction**: After report validation passes:
       - Run: `bash .specify/scripts/bash/extract-lessons-learned.sh`
+      - Follow instructions at the top of `.specify/memory/lessons-learned.md`
       - Review extracted lessons and duplicate detection results
       - If new lessons found: Manually categorize into `.specify/memory/lessons-learned.md`
-      - Add proper categorization (Testing & Quality, Technical Architecture, etc.)
-      - Add source attribution (Sprint, Phase, Date) and actionable guidance
+      - Add proper categorization (e.g., Testing & Quality, Technical Architecture, etc.), source attribution (Sprint, Phase, Date), and actionable guidance
+      - Rewrite for clarity and conciseness as needed, removing duplicate content, and ensuring each point is specific and actionable
       - Timestamp updates automatically when complete
-    
-    - **Why This Matters**: Lessons learned feed into future implementations, preventing repeated mistakes and capturing best practices for the team and AI agents.
+      - **Why This Matters**: Lessons learned feed into future implementations, preventing repeated mistakes and capturing best practices for the team and AI agents.
 
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list if needed.
-
-````
-
-`````
-
-````

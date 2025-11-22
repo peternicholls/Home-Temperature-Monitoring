@@ -6,13 +6,11 @@ Handles cookie capture from Amazon account using Playwright browser automation.
 Stores cookies in secrets.yaml for API authentication.
 """
 
-import logging
 import yaml
 import os
 from typing import Optional, Dict, Any
 from playwright.sync_api import sync_playwright
-
-logger = logging.getLogger(__name__)
+from source.utils.structured_logger import StructuredLogger
 
 
 class AmazonCookieCapture:
@@ -26,17 +24,19 @@ class AmazonCookieCapture:
     - Secure storage in secrets.yaml
     """
     
-    def __init__(self, domain: str = "amazon.co.uk", headless: bool = False):
+    def __init__(self, domain: str = "amazon.co.uk", headless: bool = False, logger: Optional[StructuredLogger] = None):
         """
         Initialize cookie capture.
         
         Args:
             domain: Amazon domain (amazon.com, amazon.co.uk, etc.)
             headless: Run browser in headless mode (default: False for interactive login)
+            logger: Optional StructuredLogger instance for logging
         """
         self.domain = domain
         self.headless = headless
         self.cookies: Optional[Dict[str, str]] = None
+        self.logger = logger
     
     def capture_cookies(self, timeout: int = 300) -> Optional[Dict[str, str]]:
         """
@@ -49,7 +49,8 @@ class AmazonCookieCapture:
             dict: Cookie name/value pairs, or None if failed
         """
         try:
-            logger.info("Starting Amazon cookie capture via Playwright...")
+            if self.logger:
+                self.logger.info("Starting Amazon cookie capture via Playwright...")
             
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=self.headless)
@@ -58,19 +59,24 @@ class AmazonCookieCapture:
                 
                 # Navigate to Amazon login
                 login_url = f"https://www.{self.domain}/ap/signin"
-                logger.info(f"Opening login page: {login_url}")
+                if self.logger:
+                    self.logger.info(f"Opening login page: {login_url}")
                 page.goto(login_url)
                 
-                logger.info("Waiting for user to log in...")
-                logger.info(f"Timeout: {timeout} seconds")
+                if self.logger:
+                    self.logger.info("Waiting for user to log in...")
+                if self.logger:
+                    self.logger.info(f"Timeout: {timeout} seconds")
                 
                 try:
                     # Wait for redirect to home page after successful login
                     page.wait_for_url(f"https://www.{self.domain}/*", timeout=timeout * 1000)
-                    logger.info("Login successful! Detected redirect to homepage")
+                    if self.logger:
+                        self.logger.info("Login successful! Detected redirect to homepage")
                     
                 except Exception as e:
-                    logger.error(f"Timeout waiting for login: {e}")
+                    if self.logger:
+                        self.logger.error(f"Timeout waiting for login: {e}")
                     browser.close()
                     return None
                 
@@ -81,36 +87,43 @@ class AmazonCookieCapture:
                 else:
                     alexa_domain = self.domain
                 alexa_url = f"https://{alexa_domain}/spa/index.html"
-                logger.info(f"Navigating to Alexa SPA: {alexa_url}")
+                if self.logger:
+                    self.logger.info(f"Navigating to Alexa SPA: {alexa_url}")
                 page.goto(alexa_url)
                 
                 try:
                     page.wait_for_load_state("networkidle", timeout=30000)
                 except Exception:
-                    logger.warning("Timeout waiting for Alexa SPA load, proceeding anyway...")
+                    if self.logger:
+                        self.logger.warning("Timeout waiting for Alexa SPA load, proceeding anyway...")
                 
                 # Capture all cookies
-                logger.info("Capturing cookies...")
+                if self.logger:
+                    self.logger.info("Capturing cookies...")
                 cookies = context.cookies()
                 browser.close()
                 
                 # Convert to simple dict
                 cookie_dict = {c['name']: c['value'] for c in cookies}
                 
-                logger.info(f"Captured {len(cookie_dict)} cookies")
-                logger.info(f"Cookie names: {list(cookie_dict.keys())}")
+                if self.logger:
+                    self.logger.info(f"Captured {len(cookie_dict)} cookies")
+                if self.logger:
+                    self.logger.info(f"Cookie names: {list(cookie_dict.keys())}")
                 
                 # Check for essential cookies
                 essential = ['session-id', 'session-token']
                 missing = [c for c in essential if c not in cookie_dict]
                 if missing:
-                    logger.warning(f"Missing essential cookies: {missing}")
+                    if self.logger:
+                        self.logger.warning(f"Missing essential cookies: {missing}")
                 
                 self.cookies = cookie_dict
                 return cookie_dict
                 
         except Exception as e:
-            logger.error(f"Error capturing cookies: {e}", exc_info=True)
+            if self.logger:
+                self.logger.error(f"Error capturing cookies: {e}", exc_info=True)
             return None
     
     def save_to_secrets(self, secrets_path: str = "config/secrets.yaml") -> bool:
@@ -124,7 +137,8 @@ class AmazonCookieCapture:
             bool: True if successful
         """
         if not self.cookies:
-            logger.error("No cookies to save")
+            if self.logger:
+                self.logger.error("No cookies to save")
             return False
         
         try:
@@ -144,11 +158,13 @@ class AmazonCookieCapture:
             with open(secrets_path, 'w') as f:
                 yaml.dump(secrets, f, default_flow_style=False)
             
-            logger.info(f"Saved {len(self.cookies)} cookies to {secrets_path}")
+            if self.logger:
+                self.logger.info(f"Saved {len(self.cookies)} cookies to {secrets_path}")
             return True
             
         except Exception as e:
-            logger.error(f"Error saving cookies: {e}")
+            if self.logger:
+                self.logger.error(f"Error saving cookies: {e}")
             return False
 
 
@@ -224,14 +240,8 @@ def validate_amazon_cookies(cookies: Dict[str, str]) -> tuple[bool, list[str]]:
     # Warn if cookie count is low (expected ~18 cookies)
     if len(cookies) < 10:
         errors.append(f"Low cookie count: {len(cookies)} (expected ~18)")
-        logger.warning(f"Only {len(cookies)} cookies found, authentication may fail")
     
     is_valid = len(errors) == 0
-    
-    if is_valid:
-        logger.info(f"✅ Cookie validation passed ({len(cookies)} cookies)")
-    else:
-        logger.error(f"❌ Cookie validation failed: {'; '.join(errors)}")
     
     return is_valid, errors
 
@@ -261,14 +271,12 @@ def check_cookie_expiration(cookies: Dict[str, str]) -> tuple[bool, Optional[str
             age = datetime.now() - session_date
             if age > timedelta(hours=23):
                 warning = f"Cookies are {age.seconds // 3600} hours old and may expire soon. Please refresh."
-                logger.warning(warning)
                 return True, warning
             
-            logger.info(f"Cookies are {age.seconds // 3600} hours old (valid)")
             return False, None
             
         except (ValueError, AttributeError) as e:
-            logger.warning(f"Could not parse session-id-time: {e}")
+            pass
     
     # If we can't determine expiration, assume cookies are valid
     return False, "Cannot determine cookie age - proceeding anyway"
@@ -277,11 +285,6 @@ def check_cookie_expiration(cookies: Dict[str, str]) -> tuple[bool, Optional[str
 # CLI interface for cookie capture
 if __name__ == "__main__":
     import argparse
-    
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
     
     parser = argparse.ArgumentParser(description="Capture Amazon cookies for Alexa API authentication")
     parser.add_argument('--domain', default='amazon.co.uk', help='Amazon domain (default: amazon.co.uk)')

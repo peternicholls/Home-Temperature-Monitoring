@@ -49,8 +49,8 @@ except ImportError:
     print("Run: pip install requests")
     sys.exit(1)
 
-# Initialize structured logger
-logger = StructuredLogger("hue_collector")
+# Logger will be initialized in main() after config is loaded
+logger: Optional[StructuredLogger] = None
 
 
 def load_config(config_path: str = "config/config.yaml") -> dict:
@@ -59,7 +59,7 @@ def load_config(config_path: str = "config/config.yaml") -> dict:
         with open(config_path, 'r') as f:
             return yaml.safe_load(f)
     except Exception as e:
-        logger.error(f"Failed to load config: {e}")
+        print(f"ERROR: Failed to load config: {e}")
         sys.exit(1)
 
 
@@ -69,8 +69,8 @@ def load_secrets(secrets_path: str = "config/secrets.yaml") -> dict:
         with open(secrets_path, 'r') as f:
             return yaml.safe_load(f)
     except Exception as e:
-        logger.error(f"Failed to load secrets: {e}")
-        logger.error("Have you run authentication? Run: python source/collectors/hue_auth.py")
+        print(f"ERROR: Failed to load secrets: {e}")
+        print("Have you run authentication? Run: python source/collectors/hue_auth.py")
         sys.exit(1)
 
 
@@ -92,13 +92,15 @@ def connect_to_bridge(config: dict, secrets: dict) -> Bridge:
     api_key = hue_secrets.get('api_key')
     
     if not api_key:
-        logger.error("No API key found in secrets.yaml")
-        logger.error("Run authentication first: python source/collectors/hue_auth.py")
+        if logger:
+            logger.error("No API key found in secrets.yaml")
+            logger.error("Run authentication first: python source/collectors/hue_auth.py")
         sys.exit(1)
     
     # Auto-discover if no IP configured
     if not bridge_ip:
-        logger.info("No bridge_ip in config, using stored credentials...")
+        if logger:
+            logger.info("No bridge_ip in config, using stored credentials...")
         # phue will use the stored IP from previous connection
         bridge = Bridge(ip=None, username=api_key)
     else:
@@ -107,10 +109,12 @@ def connect_to_bridge(config: dict, secrets: dict) -> Bridge:
     try:
         # Test connection
         bridge.get_api()
-        logger.info("Successfully connected to Hue Bridge")
+        if logger:
+            logger.info("Successfully connected to Hue Bridge")
         return bridge
     except Exception as e:
-        logger.error(f"Failed to connect to Bridge: {e}")
+        if logger:
+            logger.error(f"Failed to connect to Bridge: {e}")
         sys.exit(1)
 
 
@@ -154,7 +158,8 @@ def discover_sensors(bridge: Bridge, config: dict) -> List[Dict]:
     Returns:
         List of sensor info dictionaries
     """
-    logger.info("Discovering temperature sensors...")
+    if logger:
+        logger.info("Discovering temperature sensors...")
     
     try:
 
@@ -169,7 +174,8 @@ def discover_sensors(bridge: Bridge, config: dict) -> List[Dict]:
             api = response.json()
             duration_ms = int((time.time() - start_time) * 1000)
             response_size = sys.getsizeof(response.text)
-            logger.debug(f"API metrics: fetched sensors in {duration_ms}ms ({response_size} bytes)")
+            if logger:
+                logger.debug(f"API metrics: fetched sensors in {duration_ms}ms ({response_size} bytes)")
         else:
             # Fallback to bridge library API
             api = bridge.get_api()
@@ -194,20 +200,22 @@ def discover_sensors(bridge: Bridge, config: dict) -> List[Dict]:
 
         # Log with structured metadata
         temp_sensors = [s for s in sensors if s['model_id'] and 'ZHATemperature' in s['model_id']]
-        logger.info(
-            "Discovered sensors",
-            sensor_count=len(sensors),
-            temperature_sensors=len(temp_sensors),
-            device_ids=[s['location'] for s in temp_sensors]
-        )
+        if logger:
+            logger.info(
+                "Discovered sensors",
+                sensor_count=len(sensors),
+                temperature_sensors=len(temp_sensors),
+                device_ids=[s['location'] for s in temp_sensors]
+            )
 
         return sensors
     except Exception as e:
-        logger.error(
-            "Failed to discover sensors",
-            error_code="discovery_failed",
-            error_message=str(e)
-        )
+        if logger:
+            logger.error(
+                "Failed to discover sensors",
+                error_code="discovery_failed",
+                error_message=str(e)
+            )
         return []
 
 def convert_temperature(raw_temp: int) -> float:
@@ -269,7 +277,8 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
         if cached_sensors_data is not None:
             sensor_data = cached_sensors_data.get(sensor_id)
             if not sensor_data:
-                logger.warning(f"Sensor {sensor_info['location']} not found in cached data")
+                if logger:
+                    logger.warning(f"Sensor {sensor_info['location']} not found in cached data")
                 return None
         else:
             # Fallback to per-sensor API call (less efficient)
@@ -284,7 +293,8 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
                     response.raise_for_status()  # Raises for HTTP errors - allows retry
                 except requests.RequestException as e:
                     # Log endpoint and error for retry event tracking
-                    logger.warning(f"Transient error on endpoint /sensors/{sensor_id}: {type(e).__name__}: {e}")
+                    if logger:
+                        logger.warning(f"Transient error on endpoint /sensors/{sensor_id}: {type(e).__name__}: {e}")
                     raise TransientError(f"API call failed: {e}") from e
                 
                 sensor_data = response.json()
@@ -292,13 +302,15 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
                 
                 # Log API request metadata
                 response_size = sys.getsizeof(response.text)
-                logger.debug(f"API metrics: single sensor, {response_size} bytes, {duration_ms}ms")
+                if logger:
+                    logger.debug(f"API metrics: single sensor, {response_size} bytes, {duration_ms}ms")
             else:
                 # Fallback to full config
                 try:
                     api_data = bridge.get_api()
                 except Exception as e:
-                    logger.warning(f"Transient error on bridge.get_api(): {type(e).__name__}: {e}")
+                    if logger:
+                        logger.warning(f"Transient error on bridge.get_api(): {type(e).__name__}: {e}")
                     raise TransientError(f"Bridge API call failed: {e}") from e
                 sensor_data = api_data['sensors'][sensor_id]
         
@@ -311,23 +323,25 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
         
         # Check if sensor is reachable - permanent condition, no retry
         if not sensor_data or not sensor_data.get('config', {}).get('reachable', False):
-            logger.warning(
-                "Sensor offline",
-                location=sensor_info['location'],
-                device_id=sensor_info['unique_id'],
-                reason="unreachable"
-            )
+            if logger:
+                logger.warning(
+                    "Sensor offline",
+                    location=sensor_info['location'],
+                    device_id=sensor_info['unique_id'],
+                    reason="unreachable"
+                )
             return None
         
         # Get temperature from state - intentional skip, no retry
         raw_temp = sensor_data.get('state', {}).get('temperature')
         if raw_temp is None:
-            logger.warning(
-                "Temperature data missing",
-                location=sensor_info['location'],
-                device_id=sensor_info['unique_id'],
-                reason="no_temperature_state"
-            )
+            if logger:
+                logger.warning(
+                    "Temperature data missing",
+                    location=sensor_info['location'],
+                    device_id=sensor_info['unique_id'],
+                    reason="no_temperature_state"
+                )
             return None
         
         # Convert and validate temperature
@@ -335,12 +349,13 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
         is_anomalous = is_temperature_anomalous(temp_celsius, config)
         
         if is_anomalous:
-            logger.warning(
-                "Temperature anomaly detected",
-                temperature_celsius=temp_celsius,
-                location=sensor_info['location'],
-                device_id=sensor_info['unique_id']
-            )
+            if logger:
+                logger.warning(
+                    "Temperature anomaly detected",
+                    temperature_celsius=temp_celsius,
+                    location=sensor_info['location'],
+                    device_id=sensor_info['unique_id']
+                )
         
         # Register device in registry and get name (inferred or custom)
         unique_id = f"hue:{sensor_info['unique_id']}"
@@ -392,23 +407,25 @@ def collect_reading_from_sensor(bridge: Bridge, sensor_id: str, sensor_info: dic
         
     except TransientError as e:
         # Retry exhaustion - log and continue to next sensor
-        logger.error(
-            "Retry exhausted",
-            location=sensor_info['location'],
-            device_id=sensor_info['unique_id'],
-            error_type=type(e).__name__,
-            error_message=str(e)
-        )
+        if logger:
+            logger.error(
+                "Retry exhausted",
+                location=sensor_info['location'],
+                device_id=sensor_info['unique_id'],
+                error_type=type(e).__name__,
+                error_message=str(e)
+            )
         return None
     except Exception as e:
         # Permanent errors or unexpected failures - log and return None
-        logger.error(
-            "Collection failed",
-            location=sensor_info['location'],
-            device_id=sensor_info['unique_id'],
-            error_type=type(e).__name__,
-            error_message=str(e)
-        )
+        if logger:
+            logger.error(
+                "Collection failed",
+                location=sensor_info['location'],
+                device_id=sensor_info['unique_id'],
+                error_type=type(e).__name__,
+                error_message=str(e)
+            )
         return None
 
 
@@ -423,7 +440,8 @@ def collect_all_readings(bridge: Bridge, config: dict) -> List[Dict]:
     Returns:
         List of reading dictionaries
     """
-    logger.info("Starting collection cycle...")
+    if logger:
+        logger.info("Starting collection cycle...")
     
     # Initialize device registry manager
     device_registry_mgr = None
@@ -434,21 +452,24 @@ def collect_all_readings(bridge: Bridge, config: dict) -> List[Dict]:
         db_path = config.get('storage', {}).get('database_path', 'data/readings.db')
         db_manager = DatabaseManager(db_path, config)
         device_registry_mgr = YAMLDeviceRegistry()
-        logger.debug("Device registry manager initialized")
+        if logger:
+            logger.debug("Device registry manager initialized")
     except Exception as e:
-        logger.warning(f"Device registry not available, using default names: {e}")
+        if logger:
+            logger.warning(f"Device registry not available, using default names: {e}")
         device_registry_mgr = None
     
     # Discover sensors
     sensors = discover_sensors(bridge, config)
     
     if not sensors:
-        logger.warning(
-            "Discovery complete",
-            sensor_count=0,
-            temperature_sensors=0,
-            reason="no_sensors_found"
-        )
+        if logger:
+            logger.warning(
+                "Discovery complete",
+                sensor_count=0,
+                temperature_sensors=0,
+                reason="no_sensors_found"
+            )
         return []
     
     readings = []
@@ -469,9 +490,11 @@ def collect_all_readings(bridge: Bridge, config: dict) -> List[Dict]:
             cached_sensors_data = response.json()
             duration_ms = int((time.time() - start_time) * 1000)
             response_size = sys.getsizeof(response.text)
-            logger.info(f"API optimization: fetched all sensors in {duration_ms}ms ({response_size} bytes)")
+            if logger:
+                logger.info(f"API optimization: fetched all sensors in {duration_ms}ms ({response_size} bytes)")
         except Exception as e:
-            logger.warning(f"Failed to cache sensors data, will use per-sensor calls: {e}")
+            if logger:
+                logger.warning(f"Failed to cache sensors data, will use per-sensor calls: {e}")
             cached_sensors_data = None
 
     for sensor_info in sensors:
@@ -486,14 +509,15 @@ def collect_all_readings(bridge: Bridge, config: dict) -> List[Dict]:
                 
                 if reading:
                     readings.append(reading)
-                    logger.info(
-                        f"Collected: {sensor_info['location']}",
-                        device_id=reading['device_id'],
-                        location=reading['location'],
-                        temperature_celsius=reading['temperature_celsius'],
-                        battery_level=reading.get('battery_level'),
-                        is_anomalous=reading.get('is_anomalous', False)
-                    )
+                    if logger:
+                        logger.info(
+                            f"Collected: {sensor_info['location']}",
+                            device_id=reading['device_id'],
+                            location=reading['location'],
+                            temperature_celsius=reading['temperature_celsius'],
+                            battery_level=reading.get('battery_level'),
+                            is_anomalous=reading.get('is_anomalous', False)
+                        )
                     break  # Success, no need to retry
                 else:
                     # None means sensor offline or no data - intentional skip, don't retry
@@ -503,22 +527,26 @@ def collect_all_readings(bridge: Bridge, config: dict) -> List[Dict]:
                 # Transient network/API error - retry with backoff
                 if attempt < retry_attempts - 1:
                     wait_time = retry_backoff ** attempt
-                    logger.warning(
-                        f"Transient error for {sensor_info['location']} "
-                        f"(attempt {attempt + 1}/{retry_attempts}), retrying in {wait_time}s..."
-                    )
+                    if logger:
+                        logger.warning(
+                            f"Transient error for {sensor_info['location']} "
+                            f"(attempt {attempt + 1}/{retry_attempts}), retrying in {wait_time}s..."
+                        )
                     time.sleep(wait_time)
                 else:
-                    logger.error(
-                        f"Collection failed for {sensor_info['location']} "
-                        f"after {retry_attempts} attempts: {e}"
-                    )
+                    if logger:
+                        logger.error(
+                            f"Collection failed for {sensor_info['location']} "
+                            f"after {retry_attempts} attempts: {e}"
+                        )
             except Exception as e:
                 # Non-transient error - log and move on
-                logger.error(f"Non-retryable error for {sensor_info['location']}: {e}")
+                if logger:
+                    logger.error(f"Non-retryable error for {sensor_info['location']}: {e}")
                 break
     
-    logger.info(f"Collection cycle complete: {len(readings)}/{len(sensors)} sensors")
+    if logger:
+        logger.info(f"Collection cycle complete: {len(readings)}/{len(sensors)} sensors")
     return readings
 
 
@@ -531,7 +559,8 @@ def store_readings(readings: List[Dict], config: dict):
         config: Configuration dictionary
     """
     if not readings:
-        logger.info("No readings to store")
+        if logger:
+            logger.info("No readings to store")
         return
     
     # Import here to avoid circular dependency
@@ -553,22 +582,25 @@ def store_readings(readings: List[Dict], config: dict):
                 success_count += 1
             else:
                 duplicate_count += 1
-                logger.debug(f"Duplicate reading skipped: {reading['device_id']} at {reading['timestamp']}")
+                if logger:
+                    logger.debug(f"Duplicate reading skipped: {reading['device_id']} at {reading['timestamp']}")
         except Exception as e:
             error_count += 1
-            logger.error(f"Database error for {reading['location']}: {e}")
+            if logger:
+                logger.error(f"Database error for {reading['location']}: {e}")
     
     db.close()
     
     duration_ms = int((time.time() - start_time) * 1000)
     
-    logger.info(
-        "Readings stored",
-        readings_count=success_count,
-        duplicates=duplicate_count,
-        errors=error_count,
-        duration_ms=duration_ms
-    )
+    if logger:
+        logger.info(
+            "Readings stored",
+            readings_count=success_count,
+            duplicates=duplicate_count,
+            errors=error_count,
+            duration_ms=duration_ms
+        )
 
 
 def main():
@@ -616,8 +648,13 @@ Examples:
     
     args = parser.parse_args()
     
-    # Load configuration
+    # Load configuration and initialize logger
     config = load_config(args.config)
+    config['component'] = 'hue_collector'
+    global logger
+    logger = StructuredLogger(config)
+    
+    # Load secrets
     secrets = load_secrets(args.secrets)
     
     # Connect to Bridge
@@ -628,12 +665,15 @@ Examples:
         sensors = discover_sensors(bridge, config)
         
         if sensors:
-            logger.info(f"Discovered {len(sensors)} temperature sensor(s)", sensor_count=len(sensors))
+            if logger:
+                logger.info(f"Discovered {len(sensors)} temperature sensor(s)", sensor_count=len(sensors))
         else:
-            logger.warning("No temperature sensors discovered")
+            if logger:
+                logger.warning("No temperature sensors discovered")
         
     elif args.collect_once:
-        logger.info("Starting single collection cycle")
+        if logger:
+            logger.info("Starting single collection cycle")
         start_time = time.time()
         readings = collect_all_readings(bridge, config)
         cycle_duration_ms = int((time.time() - start_time) * 1000)
@@ -652,33 +692,37 @@ Examples:
                 })
             
             # Log with structured metadata
-            logger.success(
-                "Collection completed successfully",
-                readings_count=len(readings),
-                devices=devices_data,
-                total_cycle_ms=cycle_duration_ms,
-                status="success"
-            )
+            if logger:
+                logger.success(
+                    "Collection completed successfully",
+                    readings_count=len(readings),
+                    devices=devices_data,
+                    total_cycle_ms=cycle_duration_ms,
+                    status="success"
+                )
         else:
-            logger.warning(
-                "Collection completed with no readings",
-                readings_count=0,
-                total_cycle_ms=cycle_duration_ms,
-                status="partial"
-            )
+            if logger:
+                logger.warning(
+                    "Collection completed with no readings",
+                    readings_count=0,
+                    total_cycle_ms=cycle_duration_ms,
+                    status="partial"
+                )
         
         store_readings(readings, config)
         
     elif args.continuous:
-        logger.info("Starting continuous collection")
+        if logger:
+            logger.info("Starting continuous collection")
         
         hue_config = config.get('collectors', {}).get('hue', {})
         interval = hue_config.get('collection_interval', 300)
         
-        logger.info(f"Collection interval: {interval} seconds ({interval/60:.1f} minutes)")
+        if logger:
+            logger.info(f"Collection interval: {interval} seconds ({interval/60:.1f} minutes)")
         
+        cycle_count = 0
         try:
-            cycle_count = 0
             while True:
                 cycle_count += 1
                 start_time = time.time()
@@ -687,23 +731,26 @@ Examples:
                 store_readings(readings, config)
                 
                 # Log cycle completion with metadata
-                logger.info(
-                    f"Continuous cycle {cycle_count} completed",
-                    cycle_number=cycle_count,
-                    readings_count=len(readings) if readings else 0,
-                    cycle_duration_ms=cycle_duration_ms,
-                    interval_seconds=interval
-                )
+                if logger:
+                    logger.info(
+                        f"Continuous cycle {cycle_count} completed",
+                        cycle_number=cycle_count,
+                        readings_count=len(readings) if readings else 0,
+                        cycle_duration_ms=cycle_duration_ms,
+                        interval_seconds=interval
+                    )
                 
-                logger.info(f"Waiting {interval} seconds until next collection...")
+                if logger:
+                    logger.info(f"Waiting {interval} seconds until next collection...")
                 time.sleep(interval)
                 
         except KeyboardInterrupt:
-            logger.info(
-                "\nCollection stopped by user",
-                cycles_completed=cycle_count,
-                final_timestamp=time.strftime('%Y-%m-%d %H:%M:%S')
-            )
+            if logger:
+                logger.info(
+                    "\nCollection stopped by user",
+                    cycles_completed=cycle_count,
+                    final_timestamp=time.strftime('%Y-%m-%d %H:%M:%S')
+                )
     
     else:
         parser.print_help()

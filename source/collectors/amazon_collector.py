@@ -8,15 +8,13 @@ Uses cookie-based authentication (same approach as Home Assistant's Alexa Media 
 Based on research findings from docs/Amazon-Alexa-Air-Quality-Monitoring/
 """
 
-import logging
 import httpx
 import asyncio
 import os
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 from pathlib import Path
-
-logger = logging.getLogger(__name__)
+from source.utils.structured_logger import StructuredLogger
 
 
 class AmazonAQMCollector:
@@ -31,16 +29,18 @@ class AmazonAQMCollector:
     - Direct HTTP requests to Amazon APIs
     """
     
-    def __init__(self, cookies: Dict[str, str], config: dict = {}):
+    def __init__(self, cookies: Dict[str, str], config: dict = {}, logger: Optional[StructuredLogger] = None):
         """
         Initialize collector with Amazon cookies.
         
         Args:
             cookies: Dictionary of Amazon cookies from authentication
             config: Configuration dictionary with retry settings
+            logger: Optional StructuredLogger instance for logging
         """
         self.cookies = cookies
         self.config = config or {}
+        self.logger = logger or StructuredLogger(config) if config else None
         
         # Extract configuration
         collection_config = self.config.get('collection', {})
@@ -53,8 +53,9 @@ class AmazonAQMCollector:
         self.domain = amazon_config.get('domain', 'alexa.amazon.com')
         self.device_serial = amazon_config.get('device_serial')
         
-        logger.debug(f"Configured domain: {self.domain}")
-        logger.debug(f"Amazon config: {amazon_config}")
+        if self.logger:
+            self.logger.debug(f"Configured domain: {self.domain}")
+            self.logger.debug(f"Amazon config: {amazon_config}")
         
         # Extract CSRF token from cookies
         self.csrf_token = cookies.get('csrf', '')
@@ -70,7 +71,8 @@ class AmazonAQMCollector:
         
         # Store cookies for use with httpx
         self.cookies = cookies
-        logger.debug(f"Configured {len(cookies)} cookies for domain: {self.domain}")
+        if self.logger:
+            self.logger.debug(f"Configured {len(cookies)} cookies for domain: {self.domain}")
     
     async def list_devices(self) -> List[Dict[str, Any]]:
         """
@@ -83,7 +85,8 @@ class AmazonAQMCollector:
         """
         for attempt in range(1, self.retry_max_attempts + 1):
             try:
-                logger.info(f"Discovering devices (attempt {attempt}/{self.retry_max_attempts})")
+                if self.logger:
+                    self.logger.info(f"Discovering devices (attempt {attempt}/{self.retry_max_attempts})")
                 
                 # GraphQL query for smart home devices (from Home Assistant)
                 query = """
@@ -120,57 +123,73 @@ class AmazonAQMCollector:
                     )
                 
                 if response.status_code != 200:
-                    logger.error(f"GraphQL API returned status {response.status_code}")
-                    logger.error(f"Response: {response.text[:500]}")
+                    if self.logger:
+                        self.logger.error(f"GraphQL API returned status {response.status_code}")
+                    if self.logger:
+                        self.logger.error(f"Response: {response.text[:500]}")
                     
                     if attempt == self.retry_max_attempts:
                         return []
                     
                     # Retry with exponential backoff (async)
                     wait_time = self.retry_base_delay * (2 ** (attempt - 1))
-                    logger.info(f"Retrying in {wait_time}s...")
+                    if self.logger:
+                        self.logger.info(f"Retrying in {wait_time}s...")
                     await asyncio.sleep(wait_time)
                     continue
                 
                 # Parse JSON response
                 try:
-                    logger.debug(f"Response status: {response.status_code}")
-                    logger.debug(f"Response headers: {dict(response.headers)}")
-                    logger.debug(f"Response text length: {len(response.text)}")
-                    logger.debug(f"Response text preview: {response.text[:200]}")
+                    if self.logger:
+                        self.logger.debug(f"Response status: {response.status_code}")
+                    if self.logger:
+                        self.logger.debug(f"Response headers: {dict(response.headers)}")
+                    if self.logger:
+                        self.logger.debug(f"Response text length: {len(response.text)}")
+                    if self.logger:
+                        self.logger.debug(f"Response text preview: {response.text[:200]}")
                     
                     data = response.json()
-                    logger.debug(f"Parsed data type: {type(data)}")
-                    logger.debug(f"Parsed data: {str(data)[:500]}")
+                    if self.logger:
+                        self.logger.debug(f"Parsed data type: {type(data)}")
+                    if self.logger:
+                        self.logger.debug(f"Parsed data: {str(data)[:500]}")
                     
                     if data is None:
-                        logger.error("API returned null response")
-                        logger.error(f"Full response text: {response.text}")
+                        if self.logger:
+                            self.logger.error("API returned null response")
+                        if self.logger:
+                            self.logger.error(f"Full response text: {response.text}")
                         
                         if attempt == self.retry_max_attempts:
                             return []
                         
                         wait_time = self.retry_base_delay * (2 ** (attempt - 1))
-                        logger.info(f"Retrying in {wait_time}s...")
+                        if self.logger:
+                            self.logger.info(f"Retrying in {wait_time}s...")
                         await asyncio.sleep(wait_time)
                         continue
                         
                 except Exception as json_err:
-                    logger.error(f"Failed to parse JSON response: {json_err}")
-                    logger.debug(f"Response text: {response.text[:500]}")
+                    if self.logger:
+                        self.logger.error(f"Failed to parse JSON response: {json_err}")
+                    if self.logger:
+                        self.logger.debug(f"Response text: {response.text[:500]}")
                     
                     if attempt == self.retry_max_attempts:
                         return []
                     
                     wait_time = self.retry_base_delay * (2 ** (attempt - 1))
-                    logger.info(f"Retrying in {wait_time}s...")
+                    if self.logger:
+                        self.logger.info(f"Retrying in {wait_time}s...")
                     await asyncio.sleep(wait_time)
                     continue
                 
                 endpoints = data.get('data', {}).get('endpoints', {}).get('items', [])
                 
                 if not endpoints:
-                    logger.warning("No endpoints found in GraphQL response")
+                    if self.logger:
+                        self.logger.warning("No endpoints found in GraphQL response")
                     return []
                 
                 air_quality_monitors = []
@@ -199,7 +218,8 @@ class AmazonAQMCollector:
                                     break
                         
                         if not device_serial:
-                            logger.warning(f"No serial found for device: {appliance.get('friendlyName')}")
+                            if self.logger:
+                                self.logger.warning(f"No serial found for device: {appliance.get('friendlyName')}")
                             continue
                         
                         device_info = {
@@ -212,19 +232,22 @@ class AmazonAQMCollector:
                         }
                         
                         air_quality_monitors.append(device_info)
-                        logger.info(f"Found Air Quality Monitor: {device_info['friendly_name']} ({device_info['device_id']})")
+                        if self.logger:
+                            self.logger.info(f"Found Air Quality Monitor: {device_info['friendly_name']} ({device_info['device_id']})")
                 
                 return air_quality_monitors
                 
             except Exception as e:
-                logger.error(f"Error discovering devices (attempt {attempt}): {e}", exc_info=True)
+                if self.logger:
+                    self.logger.error(f"Error discovering devices (attempt {attempt}): {e}", exc_info=True)
                 
                 if attempt == self.retry_max_attempts:
                     return []
                 
                 # Retry with exponential backoff (async)
                 wait_time = self.retry_base_delay * (2 ** (attempt - 1))
-                logger.info(f"Retrying in {wait_time}s...")
+                if self.logger:
+                    self.logger.info(f"Retrying in {wait_time}s...")
                 await asyncio.sleep(wait_time)
         
         return []
@@ -248,7 +271,8 @@ class AmazonAQMCollector:
         
         for attempt in range(1, self.retry_max_attempts + 1):
             try:
-                logger.info(f"Fetching readings (attempt {attempt}/{self.retry_max_attempts})")
+                if self.logger:
+                    self.logger.info(f"Fetching readings (attempt {attempt}/{self.retry_max_attempts})")
                 
                 # CORRECT endpoint structure (from working v5.0.5)
                 url = f"https://{self.domain}/api/phoenix/state"
@@ -269,32 +293,39 @@ class AmazonAQMCollector:
                     )
                 
                 if response.status_code != 200:
-                    logger.error(f"State API returned status {response.status_code}")
+                    if self.logger:
+                        self.logger.error(f"State API returned status {response.status_code}")
                     
                     # Permanent auth error (401/403): create alert file and send optional email
                     if response.status_code in (401, 403):
-                        logger.critical(f"Permanent auth error {response.status_code}: token refresh needed")
+                        if self.logger:
+                            self.logger.error(f"Permanent auth error {response.status_code}: token refresh needed")
                         
                         # Create alert file
                         alert_file = Path('data/ALERT_TOKEN_REFRESH_NEEDED.txt')
                         try:
                             alert_file.parent.mkdir(parents=True, exist_ok=True)
                             alert_file.write_text("Amazon AQM token refresh required. Please re-authenticate.")
-                            logger.info(f"Alert file created: {alert_file}")
+                            if self.logger:
+                                self.logger.info(f"Alert file created: {alert_file}")
                         except Exception as file_err:
-                            logger.error(f"Failed to create alert file: {file_err}")
+                            if self.logger:
+                                self.logger.error(f"Failed to create alert file: {file_err}")
                         
                         # Optional email notification (graceful degradation)
                         try:
-                            logger.info("Optional: send email notification to admin (not implemented)")
+                            if self.logger:
+                                self.logger.info("Optional: send email notification to admin (not implemented)")
                         except Exception as email_err:
-                            logger.warning(f"Email notification failed (graceful degradation): {email_err}")
+                            if self.logger:
+                                self.logger.warning(f"Email notification failed (graceful degradation): {email_err}")
                     
                     if attempt == self.retry_max_attempts:
                         return None
                     
                     wait_time = self.retry_base_delay * (2 ** (attempt - 1))
-                    logger.info(f"Retrying in {wait_time}s...")
+                    if self.logger:
+                        self.logger.info(f"Retrying in {wait_time}s...")
                     await asyncio.sleep(wait_time)
                     continue
                 
@@ -302,7 +333,8 @@ class AmazonAQMCollector:
                 device_states = data.get("deviceStates", [])
                 
                 if not device_states:
-                    logger.warning(f"No device states found for entity {entity_id}")
+                    if self.logger:
+                        self.logger.warning(f"No device states found for entity {entity_id}")
                     return None
                 
                 # Get first device state
@@ -310,11 +342,12 @@ class AmazonAQMCollector:
                 cap_states_json = device_state.get("capabilityStates", [])
                 
                 if not cap_states_json:
-                    logger.warning(f"No capability states found for entity {entity_id}")
+                    if self.logger:
+                        self.logger.warning(f"No capability states found for entity {entity_id}")
                     return None
                 
                 # Parse capability states (they're JSON strings!)
-                readings = {
+                readings: Dict[str, Any] = {
                     'timestamp': datetime.now(timezone.utc).isoformat(),
                 }
                 
@@ -342,45 +375,54 @@ class AmazonAQMCollector:
                             temp_value = value.get("value")
                             temp_scale = value.get("scale", "CELSIUS")
                             
-                            if temp_scale == "CELSIUS":
-                                readings["temperature_celsius"] = float(temp_value)
-                            elif temp_scale == "FAHRENHEIT":
-                                # Convert to Celsius
-                                readings["temperature_celsius"] = (float(temp_value) - 32) * 5 / 9
+                            if temp_value is not None:
+                                if temp_scale == "CELSIUS":
+                                    readings["temperature_celsius"] = float(temp_value)
+                                elif temp_scale == "FAHRENHEIT":
+                                    # Convert to Celsius
+                                    readings["temperature_celsius"] = (float(temp_value) - 32) * 5 / 9
                     
                     # RangeController values (air quality sensors)
                     elif namespace == "Alexa.RangeController" and name == "rangeValue":
-                        if instance in instance_mapping:
+                        if instance in instance_mapping and value is not None:
                             field_name = instance_mapping[instance]
                             readings[field_name] = float(value)
-                            logger.debug(f"  Instance {instance} ({field_name}): {value}")
+                            if self.logger:
+                                self.logger.debug(f"  Instance {instance} ({field_name}): {value}")
                     
                     # Endpoint health
                     elif namespace == "Alexa.EndpointHealth" and name == "connectivity":
                         if isinstance(value, dict):
-                            readings["connectivity"] = value.get("value")
+                            connectivity_value = value.get("value")
+                            if connectivity_value is not None:
+                                readings["connectivity"] = connectivity_value
                 
-                logger.info(f"Collected {len(readings) - 1} readings from entity {entity_id}")
+                if self.logger:
+                    self.logger.info(f"Collected {len(readings) - 1} readings from entity {entity_id}")
                 
                 # Success: auto-clear alert file if it exists
                 alert_file = Path('data/ALERT_TOKEN_REFRESH_NEEDED.txt')
                 if alert_file.exists():
                     try:
                         alert_file.unlink()
-                        logger.info(f"Alert file cleared: {alert_file}")
+                        if self.logger:
+                            self.logger.info(f"Alert file cleared: {alert_file}")
                     except Exception as file_err:
-                        logger.error(f"Failed to clear alert file: {file_err}")
+                        if self.logger:
+                            self.logger.error(f"Failed to clear alert file: {file_err}")
                 
                 return readings
                 
             except Exception as e:
-                logger.error(f"Error fetching readings (attempt {attempt}): {e}", exc_info=True)
+                if self.logger:
+                    self.logger.error(f"Error fetching readings (attempt {attempt}): {e}", exc_info=True)
                 
                 if attempt == self.retry_max_attempts:
                     return None
                 
                 wait_time = self.retry_base_delay * (2 ** (attempt - 1))
-                logger.info(f"Retrying in {wait_time}s...")
+                if self.logger:
+                    self.logger.info(f"Retrying in {wait_time}s...")
                 await asyncio.sleep(wait_time)
         
         return None
@@ -513,16 +555,19 @@ class AmazonAQMCollector:
             try:
                 from source.storage.yaml_device_registry import YAMLDeviceRegistry
                 device_registry_mgr = YAMLDeviceRegistry()
-                logger.debug("Device registry manager initialized")
+                if self.logger:
+                    self.logger.debug("Device registry manager initialized")
             except Exception as e:
-                logger.warning(f"Device registry not available, using default names: {e}")
+                if self.logger:
+                    self.logger.warning(f"Device registry not available, using default names: {e}")
                 device_registry_mgr = None
             
             # Step 1: Discover all AQM devices registered to this account
             devices = await self.list_devices()
             
             if not devices:
-                logger.warning("No Amazon Air Quality Monitors found")
+                if self.logger:
+                    self.logger.warning("No Amazon Air Quality Monitors found")
                 return False
             
             # Step 2: Collect from each device
@@ -535,14 +580,16 @@ class AmazonAQMCollector:
                 readings = await self.get_air_quality_readings(entity_id)
                 
                 if not readings:
-                    logger.error(f"Failed to get readings from {serial}")
+                    if self.logger:
+                        self.logger.error(f"Failed to get readings from {serial}")
                     continue
                 
                 # Step 4: Validate readings (temp range, non-negative values, etc.)
                 # Validation failures logged but don't block storage
                 errors = self.validate_readings(readings)
                 if errors:
-                    logger.warning(f"Validation errors for {serial}: {errors}")
+                    if self.logger:
+                        self.logger.warning(f"Validation errors for {serial}: {errors}")
                     # Continue anyway - store what we have
                 
                 # Step 5: Format for database insertion (add location, device_id, etc.)
@@ -550,38 +597,43 @@ class AmazonAQMCollector:
                 
                 # Step 6: Insert to database (UNIQUE constraint prevents duplicates)
                 if db_manager.insert_temperature_reading(db_reading):
-                    logger.info(f"Stored reading from {serial} ({device.get('friendly_name', 'Unknown')})")
+                    if self.logger:
+                        self.logger.info(f"Stored reading from {serial} ({device.get('friendly_name', 'Unknown')})")
                     success_count += 1
                 else:
                     # Duplicate timestamp - expected behavior, not an error
-                    logger.debug(f"Duplicate reading from {serial}, skipped")
+                    if self.logger:
+                        self.logger.debug(f"Duplicate reading from {serial}, skipped")
             
             # Return True if at least one device was successfully stored
             return success_count > 0
             
         except Exception as e:
-            logger.error(f"Error collecting AQM data: {e}", exc_info=True)
+            if self.logger:
+                self.logger.error(f"Error collecting AQM data: {e}", exc_info=True)
             return False
 
 
-async def collect_amazon_aqm_data(cookies: Dict[str, str], config: dict = {}) -> Optional[Dict[str, Any]]:
+async def collect_amazon_aqm_data(cookies: Dict[str, str], config: dict = {}, logger: Optional[StructuredLogger] = None) -> Optional[Dict[str, Any]]:
     """
     Convenience function to collect air quality data from Amazon device.
     
     Args:
         cookies: Amazon authentication cookies (captured via Playwright)
         config: Configuration dictionary
+        logger: Optional StructuredLogger instance for logging
         
     Returns:
         dict: Device info and readings, or None if failed
     """
-    collector = AmazonAQMCollector(cookies, config)
+    collector = AmazonAQMCollector(cookies, config, logger)
     
     # Discover devices
     devices = await collector.list_devices()
     
     if not devices:
-        logger.warning("No Amazon Air Quality Monitors found")
+        if logger:
+            logger.warning("No Amazon Air Quality Monitors found")
         return None
     
     # Use first device or find by serial if configured
@@ -593,7 +645,8 @@ async def collect_amazon_aqm_data(cookies: Dict[str, str], config: dict = {}) ->
                 device = d
                 break
     
-    logger.info(f"Collecting data from: {device['friendly_name']}")
+    if logger:
+        logger.info(f"Collecting data from: {device['friendly_name']}")
     
     # Get readings
     readings = await collector.get_air_quality_readings(device['entity_id'])
@@ -604,7 +657,8 @@ async def collect_amazon_aqm_data(cookies: Dict[str, str], config: dict = {}) ->
     # Validate
     errors = collector.validate_readings(readings)
     if errors:
-        logger.warning(f"Validation errors: {errors}")
+        if logger:
+            logger.warning(f"Validation errors: {errors}")
     
     return {
         'device_id': device['device_id'],

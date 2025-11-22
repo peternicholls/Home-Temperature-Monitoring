@@ -9,7 +9,6 @@ Based on research from docs/amazon-nest-findings.md
 Tested with Nest Learning Thermostat (Hallway device).
 """
 
-import logging
 import httpx
 import asyncio
 import json
@@ -17,7 +16,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from source.utils.structured_logger import StructuredLogger
 
 
 class NestViaAmazonCollector:
@@ -32,16 +31,18 @@ class NestViaAmazonCollector:
     - Direct HTTP requests to Alexa APIs
     """
     
-    def __init__(self, cookies: Dict[str, str], config: dict = {}):
+    def __init__(self, cookies: Dict[str, str], config: dict = {}, logger: Optional[StructuredLogger] = None):
         """
         Initialize collector with Amazon cookies.
         
         Args:
             cookies: Dictionary of Amazon cookies from authentication
             config: Configuration dictionary with retry settings
+            logger: Optional StructuredLogger instance for logging
         """
         self.cookies = cookies
         self.config = config or {}
+        self.logger = logger or StructuredLogger(config) if config else None
         
         # Extract configuration
         collection_config = self.config.get('collection', {})
@@ -53,7 +54,8 @@ class NestViaAmazonCollector:
         amazon_config = config.get('collectors', {}).get('amazon_aqm', {})
         self.domain = amazon_config.get('domain', 'alexa.amazon.co.uk')
         
-        logger.debug(f"Configured domain: {self.domain}")
+        if self.logger:
+            self.logger.debug(f"Configured domain: {self.domain}")
         
         # Extract CSRF token from cookies
         self.csrf_token = cookies.get('csrf', '')
@@ -68,7 +70,8 @@ class NestViaAmazonCollector:
         }
         
         self.cookies = cookies
-        logger.debug(f"Configured {len(cookies)} cookies for domain: {self.domain}")
+        if self.logger:
+            self.logger.debug(f"Configured {len(cookies)} cookies for domain: {self.domain}")
     
     async def list_devices(self) -> List[Dict[str, Any]]:
         """
@@ -82,7 +85,8 @@ class NestViaAmazonCollector:
         # Try to fetch and parse data with retries
         for attempt in range(1, self.retry_max_attempts + 1):
             try:
-                logger.info(f"Discovering Nest devices (attempt {attempt}/{self.retry_max_attempts})")
+                if self.logger:
+                    self.logger.info(f"Discovering Nest devices (attempt {attempt}/{self.retry_max_attempts})")
                 
                 # GraphQL query for smart home devices
                 query = """
@@ -118,23 +122,28 @@ class NestViaAmazonCollector:
                     )
                 
                 if response.status_code != 200:
-                    logger.error(f"GraphQL API returned status {response.status_code}")
-                    logger.debug(f"Response text: {response.text[:500]}")
+                    if self.logger:
+                        self.logger.error(f"GraphQL API returned status {response.status_code}")
+                    if self.logger:
+                        self.logger.debug(f"Response text: {response.text[:500]}")
                     
                     if attempt == self.retry_max_attempts:
                         return []
                     
                     wait_time = self.retry_base_delay * (2 ** (attempt - 1))
-                    logger.info(f"Retrying in {wait_time}s...")
+                    if self.logger:
+                        self.logger.info(f"Retrying in {wait_time}s...")
                     await asyncio.sleep(wait_time)
                     continue
                 
                 # Parse JSON response
                 data = response.json()
-                logger.debug(f"Response type: {type(data)}")
+                if self.logger:
+                    self.logger.debug(f"Response type: {type(data)}")
                 
                 if not isinstance(data, dict) or data is None:
-                    logger.error("Invalid response: expected dict")
+                    if self.logger:
+                        self.logger.error("Invalid response: expected dict")
                     if attempt == self.retry_max_attempts:
                         return []
                     wait_time = self.retry_base_delay * (2 ** (attempt - 1))
@@ -145,18 +154,21 @@ class NestViaAmazonCollector:
                 break
                 
             except Exception as e:
-                logger.error(f"Error fetching devices (attempt {attempt}): {e}", exc_info=True)
+                if self.logger:
+                    self.logger.error(f"Error fetching devices (attempt {attempt}): {e}", exc_info=True)
                 
                 if attempt == self.retry_max_attempts:
                     return []
                 
                 wait_time = self.retry_base_delay * (2 ** (attempt - 1))
-                logger.info(f"Retrying in {wait_time}s...")
+                if self.logger:
+                    self.logger.info(f"Retrying in {wait_time}s...")
                 await asyncio.sleep(wait_time)
         
         # If we don't have data at this point, return empty
         if data is None:
-            logger.error("No data received from GraphQL API")
+            if self.logger:
+                self.logger.error("No data received from GraphQL API")
             return []
         
         # Process endpoints (outside retry loop)
@@ -164,11 +176,13 @@ class NestViaAmazonCollector:
             endpoints = data.get('data', {}).get('endpoints', {}).get('items', [])
             
             if not endpoints:
-                logger.warning("No endpoints found in GraphQL response")
+                if self.logger:
+                    self.logger.warning("No endpoints found in GraphQL response")
                 return []
             
             nest_devices = []
-            logger.debug(f"Processing {len(endpoints)} endpoints")
+            if self.logger:
+                self.logger.debug(f"Processing {len(endpoints)} endpoints")
             
             # Find Nest thermostats
             for endpoint in endpoints:
@@ -180,7 +194,8 @@ class NestViaAmazonCollector:
                 appliance_types = appliance.get('applianceTypes', [])
                 friendly_name = appliance.get('friendlyName', 'Unknown')
                 
-                logger.debug(f"Device: {friendly_name} | Mfg: {manufacturer} | Types: {appliance_types}")
+                if self.logger:
+                    self.logger.debug(f"Device: {friendly_name} | Mfg: {manufacturer} | Types: {appliance_types}")
                 
                 # Check if this is a Nest thermostat
                 if 'Nest' in manufacturer and 'THERMOSTAT' in appliance_types:
@@ -195,12 +210,14 @@ class NestViaAmazonCollector:
                     }
                     
                     nest_devices.append(device_info)
-                    logger.info(f"Found Nest thermostat: {device_info['friendly_name']} ({device_info['device_id']})")
+                    if self.logger:
+                        self.logger.info(f"Found Nest thermostat: {device_info['friendly_name']} ({device_info['device_id']})")
             
             return nest_devices
             
         except Exception as e:
-            logger.error(f"Error processing endpoints: {e}", exc_info=True)
+            if self.logger:
+                self.logger.error(f"Error processing endpoints: {e}", exc_info=True)
             return []
     
     async def get_thermostat_readings(self, appliance_id: str) -> Optional[Dict[str, Any]]:
@@ -215,7 +232,8 @@ class NestViaAmazonCollector:
         """
         for attempt in range(1, self.retry_max_attempts + 1):
             try:
-                logger.info(f"Fetching thermostat readings (attempt {attempt}/{self.retry_max_attempts})")
+                if self.logger:
+                    self.logger.info(f"Fetching thermostat readings (attempt {attempt}/{self.retry_max_attempts})")
                 
                 # Phoenix State API endpoint
                 url = f"https://{self.domain}/api/phoenix/state"
@@ -236,25 +254,30 @@ class NestViaAmazonCollector:
                     )
                 
                 if response.status_code != 200:
-                    logger.error(f"State API returned status {response.status_code}")
+                    if self.logger:
+                        self.logger.error(f"State API returned status {response.status_code}")
                     
                     # Permanent auth error (401/403): create alert file
                     if response.status_code in (401, 403):
-                        logger.critical(f"Permanent auth error {response.status_code}: token refresh needed")
+                        if self.logger:
+                            self.logger.critical(f"Permanent auth error {response.status_code}: token refresh needed")
                         
                         alert_file = Path('data/ALERT_TOKEN_REFRESH_NEEDED.txt')
                         try:
                             alert_file.parent.mkdir(parents=True, exist_ok=True)
                             alert_file.write_text("Amazon Alexa token refresh required. Please re-authenticate.")
-                            logger.info(f"Alert file created: {alert_file}")
+                            if self.logger:
+                                self.logger.info(f"Alert file created: {alert_file}")
                         except Exception as file_err:
-                            logger.error(f"Failed to create alert file: {file_err}")
+                            if self.logger:
+                                self.logger.error(f"Failed to create alert file: {file_err}")
                     
                     if attempt == self.retry_max_attempts:
                         return None
                     
                     wait_time = self.retry_base_delay * (2 ** (attempt - 1))
-                    logger.info(f"Retrying in {wait_time}s...")
+                    if self.logger:
+                        self.logger.info(f"Retrying in {wait_time}s...")
                     await asyncio.sleep(wait_time)
                     continue
                 
@@ -262,7 +285,8 @@ class NestViaAmazonCollector:
                 device_states = data.get("deviceStates", [])
                 
                 if not device_states:
-                    logger.warning(f"No device states found for appliance {appliance_id}")
+                    if self.logger:
+                        self.logger.warning(f"No device states found for appliance {appliance_id}")
                     return None
                 
                 # Get first device state
@@ -270,7 +294,8 @@ class NestViaAmazonCollector:
                 cap_states_json = device_state.get("capabilityStates", [])
                 
                 if not cap_states_json:
-                    logger.warning(f"No capability states found for appliance {appliance_id}")
+                    if self.logger:
+                        self.logger.warning(f"No capability states found for appliance {appliance_id}")
                     return None
                 
                 # Parse capability states (they're JSON strings!)
@@ -307,32 +332,40 @@ class NestViaAmazonCollector:
                                 readings["connectivity"] = str(connectivity)
                 
                 if "temperature_celsius" not in readings:
-                    logger.warning("No temperature reading found in capability states")
+                    if self.logger:
+                        self.logger.warning("No temperature reading found in capability states")
                     return None
                 
-                logger.info(f"Collected readings from Nest thermostat")
-                logger.debug(f"  Temperature: {readings.get('temperature_celsius')}°C")
-                logger.debug(f"  Connectivity: {readings.get('connectivity')}")
+                if self.logger:
+                    self.logger.info(f"Collected readings from Nest thermostat")
+                if self.logger:
+                    self.logger.debug(f"  Temperature: {readings.get('temperature_celsius')}°C")
+                if self.logger:
+                    self.logger.debug(f"  Connectivity: {readings.get('connectivity')}")
                 
                 # Success: auto-clear alert file if it exists
                 alert_file = Path('data/ALERT_TOKEN_REFRESH_NEEDED.txt')
                 if alert_file.exists():
                     try:
                         alert_file.unlink()
-                        logger.info(f"Alert file cleared: {alert_file}")
+                        if self.logger:
+                            self.logger.info(f"Alert file cleared: {alert_file}")
                     except Exception as file_err:
-                        logger.error(f"Failed to clear alert file: {file_err}")
+                        if self.logger:
+                            self.logger.error(f"Failed to clear alert file: {file_err}")
                 
                 return readings
                 
             except Exception as e:
-                logger.error(f"Error fetching readings (attempt {attempt}): {e}", exc_info=True)
+                if self.logger:
+                    self.logger.error(f"Error fetching readings (attempt {attempt}): {e}", exc_info=True)
                 
                 if attempt == self.retry_max_attempts:
                     return None
                 
                 wait_time = self.retry_base_delay * (2 ** (attempt - 1))
-                logger.info(f"Retrying in {wait_time}s...")
+                if self.logger:
+                    self.logger.info(f"Retrying in {wait_time}s...")
                 await asyncio.sleep(wait_time)
         
         return None
@@ -412,7 +445,8 @@ class NestViaAmazonCollector:
             devices = await self.list_devices()
             
             if not devices:
-                logger.warning("No Nest thermostats found")
+                if self.logger:
+                    self.logger.warning("No Nest thermostats found")
                 return False
             
             # Step 2: Collect from each device
@@ -426,13 +460,15 @@ class NestViaAmazonCollector:
                 readings = await self.get_thermostat_readings(appliance_id)
                 
                 if not readings:
-                    logger.error(f"Failed to get readings from {friendly_name}")
+                    if self.logger:
+                        self.logger.error(f"Failed to get readings from {friendly_name}")
                     continue
                 
                 # Step 4: Validate readings
                 errors = self.validate_readings(readings)
                 if errors:
-                    logger.warning(f"Validation errors for {friendly_name}: {errors}")
+                    if self.logger:
+                        self.logger.warning(f"Validation errors for {friendly_name}: {errors}")
                     # Continue anyway - store what we have
                 
                 # Step 5: Format for database insertion
@@ -440,45 +476,51 @@ class NestViaAmazonCollector:
                 
                 # Step 6: Insert to database
                 if db_manager.insert_temperature_reading(db_reading):
-                    logger.info(f"Stored reading from {friendly_name} (temperature: {readings.get('temperature_celsius')}°C)")
+                    if self.logger:
+                        self.logger.info(f"Stored reading from {friendly_name} (temperature: {readings.get('temperature_celsius')}°C)")
                     success_count += 1
                 else:
                     # Duplicate timestamp - expected behavior
-                    logger.debug(f"Duplicate reading from {friendly_name}, skipped")
+                    if self.logger:
+                        self.logger.debug(f"Duplicate reading from {friendly_name}, skipped")
             
             # Return True if at least one device was successfully stored
             return success_count > 0
             
         except Exception as e:
-            logger.error(f"Error collecting Nest data: {e}", exc_info=True)
+            if self.logger:
+                self.logger.error(f"Error collecting Nest data: {e}", exc_info=True)
             return False
 
 
-async def collect_nest_via_amazon(cookies: Dict[str, str], config: dict = {}) -> Optional[Dict[str, Any]]:
+async def collect_nest_via_amazon(cookies: Dict[str, str], config: dict = {}, logger: Optional[StructuredLogger] = None) -> Optional[Dict[str, Any]]:
     """
     Convenience function to collect Nest thermostat data via Alexa.
     
     Args:
         cookies: Amazon authentication cookies
         config: Configuration dictionary
+        logger: Optional StructuredLogger instance for logging
         
     Returns:
         dict: Device info and readings, or None if failed
     """
-    collector = NestViaAmazonCollector(cookies, config)
+    collector = NestViaAmazonCollector(cookies, config, logger)
     
     # Discover devices
     devices = await collector.list_devices()
     
     if not devices:
-        logger.warning("No Nest thermostats found")
+        if logger:
+            logger.warning("No Nest thermostats found")
         return None
     
     # Use first device
     device = devices[0]
     appliance_id = device['appliance_id']
     
-    logger.info(f"Collecting data from: {device['friendly_name']}")
+    if logger:
+        logger.info(f"Collecting data from: {device['friendly_name']}")
     
     # Get readings
     readings = await collector.get_thermostat_readings(appliance_id)
@@ -489,7 +531,8 @@ async def collect_nest_via_amazon(cookies: Dict[str, str], config: dict = {}) ->
     # Validate
     errors = collector.validate_readings(readings)
     if errors:
-        logger.warning(f"Validation errors: {errors}")
+        if logger:
+            logger.warning(f"Validation errors: {errors}")
     
     return {
         'device_id': device['device_id'],

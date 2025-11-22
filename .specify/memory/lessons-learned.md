@@ -9,8 +9,14 @@ last_updated: "2025-11-21T23:45:00Z"
 
 1. **Before Starting Work**: Review relevant categories to avoid repeating past mistakes
 2. **During Implementation**: Reference specific lessons when making architectural/technical decisions.
-3. **After Completion**: After completing each phase implementation report, extract the "Lessons Learned" section and add it here with proper categorization and sprint/phase attribution.
+  - For each new lesson learned during implementation:
+    - Add proper categorization (Testing & Quality, Technical Architecture, etc.)
+    - Add source attribution (Sprint, Phase, Date) and actionable guidance
+3. **After Completion**: 
+  - Review newly extracted lessons.
+  - Timestamp updates automatically when complete.
 4. **Periodic Review**: Revisit to identify patterns and update constitution/templates.
+
 
 ---
 
