@@ -5,25 +5,25 @@ devices:
     device_type: hue_sensor
     model_info: SML001
     first_seen: "2025-11-21 22:38:30"
-    last_seen: "2025-11-22 00:45:41"
+    last_seen: "2025-11-22 00:50:42"
   hue:00:17:88:01:03:28:0f:d0-02-0402:
     name: Hall Hue Sensor
     location: Hall
     device_type: hue_sensor
     model_info: SML001
     first_seen: "2025-11-21 22:38:30"
-    last_seen: "2025-11-22 00:45:41"
+    last_seen: "2025-11-22 00:50:42"
   alexa:GAJ23005314600H3:
     name: Living Room Air Quality
     location: Living Room
     device_type: amazon_aqm
     model_info: A3VRME03NAXFUB
     first_seen: "2025-11-21 22:38:40"
-    last_seen: "2025-11-22 00:46:40"
+    last_seen: "2025-11-22 00:51:42"
   nest:SKILL_eyJza2lsbElkIjoiYW16bjEuYXNrLnNraWxsLjM5YmFhMWQ5LTczMTUtNDAxYi1hNWIzLWRjYzgzOGM2YTg3OCIsInN0YWdlIjoibGl2ZSJ9_QVZQSHdFdlkzTG15MldwOWdzZ2tWaDR5ZkJkaGNhNzBGNFlwZ3haTF9hVEstNGRDbEpaZnVnM2Etam1xa2p1WUhYUklDeXlDWExSX2FsOWg5UXh2WVhYY0tReTE4UQ==:
     name: Hall Nest Thermostat
-    location: Hallway
+    location: Hall
     device_type: nest_thermostat
     model_info: Nest Thermostat
     first_seen: "2025-11-22 00:41:25"
-    last_seen: "2025-11-22 00:47:20"
+    last_seen: "2025-11-22 00:51:51"

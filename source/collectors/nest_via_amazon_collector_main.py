@@ -144,7 +144,7 @@ async def collect_once(config: dict, secrets: dict) -> bool:
                 model_info=model_name
             )
             
-            # Get custom name from registry (if set by user)
+            # Get custom name from registry for logging
             custom_name = registry_manager.get_device_name(device_id)
             display_name = custom_name if custom_name else friendly_name
             
@@ -173,8 +173,8 @@ async def collect_once(config: dict, secrets: dict) -> bool:
                 if logger:
                     logger.warning(f"Validation warnings for {display_name}: {errors}")
             
-            # Format for database (use custom name if available)
-            db_reading = collector.format_reading_for_db(device_id, display_name, readings, config)
+            # Format for database (pass original friendly_name and registry manager)
+            db_reading = collector.format_reading_for_db(device_id, friendly_name, readings, config, registry_manager)
             
             # Log the reading
             if logger:
@@ -268,7 +268,7 @@ async def collect_continuous(config: dict, secrets: dict) -> None:
                         model_info=model_name
                     )
                     
-                    # Get custom name from registry (if set by user)
+                    # Get custom name from registry for logging
                     custom_name = registry_manager.get_device_name(device_id)
                     display_name = custom_name if custom_name else friendly_name
                     
@@ -285,8 +285,8 @@ async def collect_continuous(config: dict, secrets: dict) -> None:
                         if logger:
                             logger.warning(f"Validation warnings: {errors}")
                     
-                    # Format for database (use custom name if available)
-                    db_reading = collector.format_reading_for_db(device_id, display_name, readings, config)
+                    # Format for database (pass original friendly_name and registry manager)
+                    db_reading = collector.format_reading_for_db(device_id, friendly_name, readings, config, registry_manager)
                     
                     # Store in database
                     if db_manager.insert_temperature_reading(db_reading):

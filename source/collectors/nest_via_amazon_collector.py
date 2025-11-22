@@ -392,15 +392,16 @@ class NestViaAmazonCollector:
         
         return errors
     
-    def format_reading_for_db(self, device_id: str, friendly_name: str, readings: dict, config: dict) -> dict:
+    def format_reading_for_db(self, device_id: str, friendly_name: str, readings: dict, config: dict, device_registry_mgr = None) -> dict:
         """
         Format thermostat readings for database insertion.
         
         Args:
             device_id: Device identifier (nest:appliance_id)
-            friendly_name: Human-readable device name
+            friendly_name: Human-readable device name from Alexa API
             readings: Raw readings from get_thermostat_readings()
             config: Configuration dict
+            device_registry_mgr: Optional DeviceRegistryManager for device naming
             
         Returns:
             dict: Formatted reading ready for database
@@ -409,9 +410,17 @@ class NestViaAmazonCollector:
         locations = config.get('amazon_aqm', {}).get('device_locations', {})
         location = locations.get(device_id, friendly_name)
         
-        # Infer device name from location + type
-        from source.storage.yaml_device_registry import infer_device_name
-        device_name = infer_device_name(location, 'nest_thermostat', device_id)
+        # Get device name from registry (custom or inferred)
+        if device_registry_mgr:
+            device_name = device_registry_mgr.get_device_name(device_id)
+            if not device_name:
+                # Device not registered yet, infer name
+                from source.storage.yaml_device_registry import infer_device_name
+                device_name = infer_device_name(location, 'nest_thermostat', device_id)
+        else:
+            # Fallback if no registry manager
+            from source.storage.yaml_device_registry import infer_device_name
+            device_name = infer_device_name(location, 'nest_thermostat', device_id)
         
         # Format reading with all thermostat fields
         db_reading = {
