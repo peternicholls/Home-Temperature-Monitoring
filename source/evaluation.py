@@ -30,7 +30,6 @@ try:
     AZURE_AI_AVAILABLE = True
 except ImportError:
     AZURE_AI_AVAILABLE = False
-    evaluate = None
     logger.warning("azure-ai-evaluation not installed. Install with: pip install azure-ai-evaluation")
 
 
