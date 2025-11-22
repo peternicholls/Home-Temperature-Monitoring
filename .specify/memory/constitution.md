@@ -1,13 +1,12 @@
 <!--
 Sync Impact Report
-Version change: 2.0.2 → 2.0.3 (PATCH: Added Pre-Execution Hook System reference to Critical Reminders)
+Version change: 2.0.3 → 2.1.0 (MINOR: Removed duplication in Critical Reminders)
 Modified sections:
-  - Added note about Pre-Execution Hook System auto-displaying reminders
-  - Added automation note to Critical Reminder #1 (venv auto-activation)
-  - Cross-referenced `.specify/memory/pre-check-exit-codes.md`
-  - No principle changes, documentation enhancement only
+  - Critical Reminder #3: Consolidated duplicate testing framework lines into single statement
+  - Critical Reminder #4: Consolidated duplicate research capture lines into single clear statement
+  - No principle changes, clarity improvement only
 Templates requiring updates: ✅ No template changes required
-Follow-up TODOs: Test pre-execution hook with all agents to verify automatic display
+Follow-up TODOs: None
 -->
 
 # Home Temperature Monitoring Constitution
@@ -32,13 +31,11 @@ Follow-up TODOs: Test pre-execution hook with all agents to verify automatic dis
 3. **TEST-DRIVEN DEVELOPMENT**: Write tests before implementation (not 'quick and dirty' anymore)
    - Minimum 80% coverage for new code
    - Framework: pytest with async support (anyio) and comprehensive mocking
-   - Framework: pytest with async support and mocking
 
 4. **RESEARCH COMPLEX FEATURES**: Document research in research.md before coding
    - Required for: OAuth flows, GraphQL APIs, new integrations
-   - Include: API investigation, experiments, failed attempts, successful patterns
+   - Capture: API investigation, experiments, failed attempts, successful patterns, and detailed iteration work
    - See: Sprint 004 (Amazon AQM) as example
-   - Capture: API investigation, experiments, failed attempts, successful patterns, and any other detailed work
 
 5. **WRITE IMPLEMENTATION REPORTS**: After completing any phase, create report in `docs/reports/`
    - Follow: `.specify/templates/commands/report-writing-process.md` (20-step process)
@@ -349,4 +346,4 @@ The project is successful when:
 
 ---
 
-**Version**: 2.1.0 | **Ratified**: 2025-11-18 | **Last Amended**: 2025-11-21
+**Version**: 2.1.0 | **Ratified**: 2025-11-18 | **Last Amended**: 2025-11-22
