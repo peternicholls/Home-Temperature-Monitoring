@@ -419,6 +419,12 @@ This project uses:
 
 ### 24-Hour Continuous Operation Test
 
+**⏱️ CURRENT TEST IN PROGRESS**
+- **Started**: 2025-11-21 22:58:43 UTC (21 Nov 2025, ~11:00 PM)
+- **Expected completion**: 2025-11-22 22:58:43 UTC (22 Nov 2025, ~11:00 PM)
+- **Status**: Running (last log entry: 2025-11-22 00:21:36 UTC)
+- **Monitoring**: logs/collection.log (active logging)
+
 - [ ] T159 Run both Hue and Amazon AQM collectors concurrently for 24 hours monitoring for database locked errors, retry behavior, log rotation, data gaps, and resource usage
 - [ ] T160 Verify SC-001: 100% of readings stored with zero data loss
 - [ ] T161 Verify SC-002: 95%+ retry success rate for transient lock scenarios
