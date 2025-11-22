@@ -27,12 +27,105 @@ logger = logging.getLogger(__name__)
 # Try to import Azure AI Evaluation SDK
 try:
     from azure.ai.evaluation import evaluate
+    AZURE_AI_AVAILABLE = True
 except ImportError:
-    logger.error("azure-ai-evaluation not installed. Install with: pip install azure-ai-evaluation")
-    sys.exit(1)
+    AZURE_AI_AVAILABLE = False
+    logger.warning("azure-ai-evaluation not installed. Install with: pip install azure-ai-evaluation")
 
 
-class CollectionCompletenessEvaluator:
+class BaseEvaluator:
+    """
+    Base class for all evaluators to reduce code duplication.
+    
+    Provides common functionality:
+    - Loading evaluation responses from JSON file
+    - Extracting scenario response by query_id
+    - Error handling patterns
+    - Standardized return format
+    """
+    
+    def __init__(self, name: str):
+        """
+        Initialize base evaluator.
+        
+        Args:
+            name: Name of the evaluator (e.g., 'collection_completeness')
+        """
+        self.name = name
+    
+    def _load_responses_file(self) -> Optional[Path]:
+        """
+        Load the evaluation responses file path.
+        
+        Returns:
+            Path to responses file, or None if not found
+        """
+        responses_file = Path(__file__).parent.parent / "data" / "evaluation_responses.json"
+        return responses_file if responses_file.exists() else None
+    
+    def _get_scenario_response(self, query_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Extract scenario response for a given query_id.
+        
+        Args:
+            query_id: Unique query identifier
+            
+        Returns:
+            Dict containing scenario response data, or None if not found
+        """
+        responses_file = self._load_responses_file()
+        
+        if not responses_file:
+            return None
+        
+        try:
+            with open(responses_file) as f:
+                eval_data = json.load(f)
+            
+            # Extract scenario response
+            for response in eval_data.get("evaluation_responses", []):
+                if response.get("query_id") == query_id:
+                    return response
+            
+            return None
+        except Exception as e:
+            logger.error(f"Error loading scenario response for {query_id}: {str(e)}")
+            return None
+    
+    def _create_error_response(
+        self,
+        query_id: str,
+        score_key: str,
+        status: str,
+        reason: Optional[str] = None,
+        error: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Create standardized error response.
+        
+        Args:
+            query_id: Unique query identifier
+            score_key: Name of the score field (e.g., 'completeness_score')
+            status: Status string (e.g., 'FAIL', 'ERROR', 'NO_DATA')
+            reason: Optional reason for the error
+            error: Optional error message
+            
+        Returns:
+            Dict with error response
+        """
+        response = {
+            "query_id": query_id,
+            score_key: 0.0,
+            "status": status
+        }
+        if reason:
+            response["reason"] = reason
+        if error:
+            response["error"] = error
+        return response
+
+
+class CollectionCompletenessEvaluator(BaseEvaluator):
     """
     Evaluates sensor discovery and reading collection completeness.
     
@@ -43,7 +136,7 @@ class CollectionCompletenessEvaluator:
     """
     
     def __init__(self):
-        self.name = "collection_completeness"
+        super().__init__("collection_completeness")
     
     def __call__(
         self,
@@ -73,35 +166,26 @@ class CollectionCompletenessEvaluator:
             expected_sensors = int(expected_sensors) if expected_sensors else 0
             expected_readings = int(expected_readings) if expected_readings else 0
             
-            # Load actual responses from evaluation_responses.json
-            responses_file = Path(__file__).parent.parent / "data" / "evaluation_responses.json"
+            # Use base class method to check file exists
+            responses_file = self._load_responses_file()
+            if not responses_file:
+                return self._create_error_response(
+                    query_id,
+                    "completeness_score",
+                    "FAIL",
+                    reason="No evaluation responses file found",
+                    error="evaluation_responses.json missing"
+                )
             
-            if not responses_file.exists():
-                return {
-                    "query_id": query_id,
-                    "completeness_score": 0.0,
-                    "status": "FAIL",
-                    "reason": "No evaluation responses file found",
-                    "error": "evaluation_responses.json missing"
-                }
-            
-            with open(responses_file) as f:
-                eval_data = json.load(f)
-            
-            # Extract scenario response
-            scenario_response = None
-            for response in eval_data.get("evaluation_responses", []):
-                if response.get("query_id") == query_id:
-                    scenario_response = response
-                    break
-            
+            # Use base class method to get scenario response
+            scenario_response = self._get_scenario_response(query_id)
             if not scenario_response:
-                return {
-                    "query_id": query_id,
-                    "completeness_score": 0.0,
-                    "status": "NO_DATA",
-                    "reason": f"No response data found for {query_id}"
-                }
+                return self._create_error_response(
+                    query_id,
+                    "completeness_score",
+                    "NO_DATA",
+                    reason=f"No response data found for {query_id}"
+                )
             
             # Calculate completeness metrics
             sensors_found = scenario_response.get("sensors_found", 0)
@@ -147,15 +231,15 @@ class CollectionCompletenessEvaluator:
         
         except Exception as e:
             logger.error(f"Error evaluating collection completeness for {query_id}: {str(e)}")
-            return {
-                "query_id": query_id,
-                "completeness_score": 0.0,
-                "status": "ERROR",
-                "error": str(e)
-            }
+            return self._create_error_response(
+                query_id,
+                "completeness_score",
+                "ERROR",
+                error=str(e)
+            )
 
 
-class DataQualityCorrectnessEvaluator:
+class DataQualityCorrectnessEvaluator(BaseEvaluator):
     """
     Evaluates data quality and correctness.
     
@@ -168,7 +252,7 @@ class DataQualityCorrectnessEvaluator:
     """
     
     def __init__(self):
-        self.name = "data_quality_correctness"
+        super().__init__("data_quality_correctness")
         self.min_temp = -10.0
         self.max_temp = 50.0
     
@@ -196,40 +280,32 @@ class DataQualityCorrectnessEvaluator:
             Dict with quality score (0-1), status, and validation details
         """
         try:
-            responses_file = Path(__file__).parent.parent / "data" / "evaluation_responses.json"
+            # Use base class method to check file exists
+            responses_file = self._load_responses_file()
+            if not responses_file:
+                return self._create_error_response(
+                    query_id,
+                    "quality_score",
+                    "FAIL",
+                    reason="No evaluation responses file found"
+                )
             
-            if not responses_file.exists():
-                return {
-                    "query_id": query_id,
-                    "quality_score": 0.0,
-                    "status": "FAIL",
-                    "reason": "No evaluation responses file found"
-                }
-            
-            with open(responses_file) as f:
-                eval_data = json.load(f)
-            
-            # Extract scenario response
-            scenario_response = None
-            for response in eval_data.get("evaluation_responses", []):
-                if response.get("query_id") == query_id:
-                    scenario_response = response
-                    break
-            
+            # Use base class method to get scenario response
+            scenario_response = self._get_scenario_response(query_id)
             if not scenario_response:
-                return {
-                    "query_id": query_id,
-                    "quality_score": 0.0,
-                    "status": "NO_DATA"
-                }
+                return self._create_error_response(
+                    query_id,
+                    "quality_score",
+                    "NO_DATA"
+                )
             
             readings = scenario_response.get("readings_collected", [])
             if not readings:
-                return {
-                    "query_id": query_id,
-                    "quality_score": 0.0,
-                    "status": "NO_READINGS"
-                }
+                return self._create_error_response(
+                    query_id,
+                    "quality_score",
+                    "NO_READINGS"
+                )
             
             # Validation scores
             valid_timestamps = 0
@@ -299,15 +375,15 @@ class DataQualityCorrectnessEvaluator:
         
         except Exception as e:
             logger.error(f"Error evaluating data quality for {query_id}: {str(e)}")
-            return {
-                "query_id": query_id,
-                "quality_score": 0.0,
-                "status": "ERROR",
-                "error": str(e)
-            }
+            return self._create_error_response(
+                query_id,
+                "quality_score",
+                "ERROR",
+                error=str(e)
+            )
 
 
-class SystemReliabilityEvaluator:
+class SystemReliabilityEvaluator(BaseEvaluator):
     """
     Evaluates system reliability and error handling.
     
@@ -319,7 +395,7 @@ class SystemReliabilityEvaluator:
     """
     
     def __init__(self):
-        self.name = "system_reliability"
+        super().__init__("system_reliability")
     
     def __call__(
         self,
@@ -345,32 +421,24 @@ class SystemReliabilityEvaluator:
             Dict with reliability score (0-1), status, and details
         """
         try:
-            responses_file = Path(__file__).parent.parent / "data" / "evaluation_responses.json"
+            # Use base class method to check file exists
+            responses_file = self._load_responses_file()
+            if not responses_file:
+                return self._create_error_response(
+                    query_id,
+                    "reliability_score",
+                    "FAIL",
+                    reason="No evaluation responses file found"
+                )
             
-            if not responses_file.exists():
-                return {
-                    "query_id": query_id,
-                    "reliability_score": 0.0,
-                    "status": "FAIL",
-                    "reason": "No evaluation responses file found"
-                }
-            
-            with open(responses_file) as f:
-                eval_data = json.load(f)
-            
-            # Extract scenario response
-            scenario_response = None
-            for response in eval_data.get("evaluation_responses", []):
-                if response.get("query_id") == query_id:
-                    scenario_response = response
-                    break
-            
+            # Use base class method to get scenario response
+            scenario_response = self._get_scenario_response(query_id)
             if not scenario_response:
-                return {
-                    "query_id": query_id,
-                    "reliability_score": 0.0,
-                    "status": "NO_DATA"
-                }
+                return self._create_error_response(
+                    query_id,
+                    "reliability_score",
+                    "NO_DATA"
+                )
             
             # Check execution result
             execution_result = scenario_response.get("execution_result")
@@ -425,12 +493,12 @@ class SystemReliabilityEvaluator:
         
         except Exception as e:
             logger.error(f"Error evaluating system reliability for {query_id}: {str(e)}")
-            return {
-                "query_id": query_id,
-                "reliability_score": 0.0,
-                "status": "ERROR",
-                "error": str(e)
-            }
+            return self._create_error_response(
+                query_id,
+                "reliability_score",
+                "ERROR",
+                error=str(e)
+            )
 
 
 def run_evaluation(
@@ -447,6 +515,10 @@ def run_evaluation(
     Returns:
         Dictionary containing evaluation results
     """
+    if not AZURE_AI_AVAILABLE:
+        logger.error("azure-ai-evaluation is required to run evaluations")
+        return {"status": "ERROR", "message": "azure-ai-evaluation not installed"}
+    
     logger.info("=" * 80)
     logger.info("🎯 Starting Temperature Monitoring System Evaluation")
     logger.info("=" * 80)
