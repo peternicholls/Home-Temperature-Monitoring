@@ -15,14 +15,9 @@ LOG_FILE="$LOG_DIR/collection.log"
 # Create logs directory if needed
 mkdir -p "$LOG_DIR"
 
-# Helper function to get ISO 8601 timestamp with milliseconds
-get_timestamp() {
-    date -u +'%Y-%m-%dT%H:%M:%S.000Z'
-}
-
 # Ensure venv exists
 if [ ! -d "$VENV" ]; then
-    echo "{\"timestamp\":\"$(get_timestamp)\",\"level\":\"ERROR\",\"component\":\"nest_runner\",\"message\":\"Virtual environment not found\"}" >> "$LOG_FILE"
+    echo "ERROR: Virtual environment not found at $VENV" >&2
     exit 1
 fi
 
@@ -30,14 +25,9 @@ fi
 cd "$PROJECT_ROOT"
 source "$VENV/bin/activate"
 
-# Add cycle start marker to log
-echo "{\"timestamp\":\"$(get_timestamp)\",\"level\":\"INFO\",\"component\":\"nest_runner\",\"message\":\"Starting Nest via Amazon collection cycle via launchd\"}" >> "$LOG_FILE"
-
-# Run the collector with error handling, capturing all JSON output to log
-if python -m source.collectors.nest_via_amazon_collector_main --collect-once 2>&1 | grep '^{' >> "$LOG_FILE"; then
-    echo "{\"timestamp\":\"$(get_timestamp)\",\"level\":\"SUCCESS\",\"component\":\"nest_runner\",\"message\":\"Nest collection cycle completed successfully\"}" >> "$LOG_FILE"
+# Run the collector - StructuredLogger writes directly to log file with locking
+if python -m source.collectors.nest_via_amazon_collector_main --collect-once > /dev/null 2>&1; then
     exit 0
 else
-    echo "{\"timestamp\":\"$(get_timestamp)\",\"level\":\"ERROR\",\"component\":\"nest_runner\",\"message\":\"Nest collection cycle failed\"}" >> "$LOG_FILE"
     exit 1
 fi

@@ -15,6 +15,7 @@ Usage:
 
 import json
 import sys
+import fcntl
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -77,16 +78,19 @@ class StructuredLogger:
         # Use separators to minimize size, ensure_ascii=False for unicode support
         json_line = json.dumps(entry, separators=(',', ':'), ensure_ascii=False)
         
-        # Output to stdout (will be captured by runner script)
-        print(json_line)
-        sys.stdout.flush()  # Ensure immediate output
-        
-        # Also write to file if enabled
+        # Write to file if enabled (with file locking for concurrent writes)
         if self.enable_file_logging:
             try:
                 with open(self.log_file_path, 'a', encoding='utf-8') as f:
-                    f.write(json_line + '\n')
-                    f.flush()
+                    # Acquire exclusive lock to prevent race conditions when multiple
+                    # collectors write to the same file simultaneously
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                    try:
+                        f.write(json_line + '\n')
+                        f.flush()
+                    finally:
+                        # Always release the lock
+                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
             except Exception:
                 # Don't fail if file logging fails, just continue
                 pass

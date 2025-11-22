@@ -11,6 +11,10 @@ Features:
 - Persist metadata (first_seen, last_seen, model_info)
 - No database dependency for device names
 - Human-readable and version-control friendly
+
+TODO:
+- When refactoring registries code, use a software design pattern to allow easy swapping between different registry backends (YAML, DB, etc). such as Strategy Pattern or Factory Pattern, where there is a manager class that selects the appropriate registry implementation based on configuration.
+- Add unit tests for YAMLDevice
 """
 
 import logging
