@@ -1,7 +1,8 @@
 #!/bin/bash
 # scripts/collectors-amazon-runner.sh
-# Single collection cycle for Amazon AQM collector
+# Single collection cycle for unified Amazon/Alexa collector
 # Runs every 5 minutes via launchd
+# Collects from ALL Amazon/Alexa devices (AQM, Nest, etc.) in one efficient cycle
 # Captures structured JSON logs to combined collection.log
 
 set -e
@@ -25,8 +26,8 @@ fi
 cd "$PROJECT_ROOT"
 source "$VENV/bin/activate"
 
-# Run the collector - StructuredLogger writes directly to log file with locking
-if python -m source.collectors.amazon_aqm_collector_main --collect-once > /dev/null 2>&1; then
+# Run the unified collector - StructuredLogger writes directly to log file with locking
+if python -m source.collectors.amazon_unified_collector_main --collect-once > /dev/null 2>&1; then
     exit 0
 else
     exit 1
