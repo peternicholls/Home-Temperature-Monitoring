@@ -35,6 +35,13 @@ applies_to: "All sprint phases that require implementation reports"
 2. **Header**: Fill frontmatter (description, sprint, phase, user_story) and header (Sprint, User Story, Date, Status).
    - Status options: 🔄 IN PROGRESS, ✅ COMPLETE, ⚠️ BLOCKED, ❌ FAILED
 
+   - **Phase/Story Numbering for General Content**: If there is no direct mapping to a specific phase or user story, use "N/A" or "Not Applicable" for the phase or story number, and assign a number in the 900 series (e.g., 901, 902, etc.). The 900 series is reserved for general implementation report content not tied to specific phases or stories. This ensures all report sections and lessons learned are traceable and unambiguous.
+   - Section headers may be adapted for clarity (e.g., "Key Lessons Learned" is valid for "Lessons Learned").
+   - Recommended sections are optional; their absence should not fail validation.
+   - Reports with 2 or more substantive lessons learned are valid if each is detailed and actionable.
+   - The "Lessons Learned" section should be substantive (suggested: 12+ lines or 2+ detailed lessons), but quality is prioritized over length.
+   - Accept "N/A" or 900-series numbers for phase/story fields without warning.
+
 3. **Executive Summary**: 2-3 direct sentences on what was implemented, current state, and key result.
 
 4. **Key Achievements**: Concise bullets with status icons (✅/⚠️/❌).

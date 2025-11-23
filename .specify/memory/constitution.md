@@ -166,6 +166,9 @@ Each spec folder (`specs/NNN-name/`) MUST contain:
 - **contracts/**: API contracts and interface definitions
 - **tasks.md**: Detailed task list with status tracking
 
+#### Phase/Story Numbering for General Content
+For implementation reports and documentation, if there is no direct mapping to a specific phase or user story, use "N/A" or "Not Applicable" for the phase or story number. In these cases, assign a number in the 900 series (e.g., 901, 902, etc.). The 900 series is reserved for general implementation report content not tied to specific phases or stories. This ensures traceability and clarity in documentation and lessons learned extraction.
+
 ### Sprint Workflow (Test-Driven)
 1. **Planning**: Create sprint branch, write spec.md and plan.md
 2. **Research**: Investigate APIs, document findings in research.md (critical for complex features like OAuth, GraphQL)
@@ -346,4 +349,4 @@ The project is successful when:
 
 ---
 
-**Version**: 2.1.0 | **Ratified**: 2025-11-18 | **Last Amended**: 2025-11-22
+**Version**: 2.2.0 | **Ratified**: 2025-11-18 | **Last Amended**: 2025-11-23

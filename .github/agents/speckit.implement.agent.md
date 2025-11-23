@@ -147,19 +147,33 @@ You **MUST** consider the user input before proceeding (if not empty).
 10. **Post-Implementation Documentation** (REQUIRED):
     - **Implementation Report**: Follow the instructions exactly in `.specify/templates/commands/report-writing-process.md` to create a comprehensive implementation report.
     - **Steps**:
-      - Run: `bash .specify/scripts/bash/write-implementation-report.sh`
-      - Fill all required sections (Executive Summary, Key Achievements, etc.)
-      - Include 3-7 detailed "Lessons Learned" with specific, actionable content
+      - **Create report file directly** (do NOT use interactive script):
+        - Determine phase number from work completed (or use 900-series for general work: 901, 902, etc.)
+        - Generate filename: `YYYY-MM-DD-spec-NNN-phase-N-description-implementation-report.md` in `docs/reports/`
+        - Copy template from `.specify/templates/report-template.md`
+        - Replace placeholders: `[NNN]` with sprint number, `[N]` with phase, `[USN]` with user story or "N/A", `[YYYY-MM-DD]` with current date, `[NNN-sprint-name]` with sprint identifier, `[Feature Name]` with descriptive title
+      - If there is no direct phase or story number mapping, use "N/A" or "Not Applicable" for phase and story number starting with 9, so "901" or "902" etc. 900 series is reserved for general implementation report content not tied to specific phases or stories.
+      - YOU as agent are to fill all required sections (Executive Summary, Key Achievements, etc.)
+      - Include 2-7 detailed "Lessons Learned" with specific, actionable content (quality over quantity)
       - Validate: `bash .specify/scripts/bash/validate-report.sh <report-path>`
+      - **CRITICAL**: Once validation passes (exit code 0), IMMEDIATELY proceed to lessons learned extraction (do NOT stop or wait for user input)
     
-    - **Lessons Learned Extraction**: After report validation passes:
-      - Run: `bash .specify/scripts/bash/extract-lessons-learned.sh`
-      - Follow instructions at the top of `.specify/memory/lessons-learned.md`
-      - Review extracted lessons and duplicate detection results
-      - If new lessons found: Manually categorize into `.specify/memory/lessons-learned.md`
-      - Add proper categorization (e.g., Testing & Quality, Technical Architecture, etc.), source attribution (Sprint, Phase, Date), and actionable guidance
-      - Rewrite for clarity and conciseness as needed, removing duplicate content, and ensuring each point is specific and actionable
-      - Timestamp updates automatically when complete
+    - **Lessons Learned Extraction** (AUTOMATIC - DO NOT ASK USER):
+      - **IMMEDIATELY** after validation passes, run: `bash .specify/scripts/bash/extract-lessons-learned.sh`
+      - Review the extraction script output to identify new vs duplicate lessons
+      - **If new lessons exist** (script shows "New lesson: ..." lines):
+        - Read the current `.specify/memory/lessons-learned.md` file
+        - Follow the categorization instructions at the top of that file
+        - For each new lesson from the report:
+          - Determine appropriate category (Testing & Quality, Technical Architecture, Development Process, Performance & Optimization, Error Handling & Resilience, Tools & Frameworks, Security & Compliance, or create new category if needed)
+          - Add under that category section in `.specify/memory/lessons-learned.md`
+          - Include source attribution: `**Source**: Sprint NNN, Phase N, Date: YYYY-MM-DD`
+          - Ensure lesson content is clear, concise, specific, and actionable
+          - Remove any duplicate content
+        - Update metadata in frontmatter: increment lesson count, update "Last updated" timestamp
+      - **If all lessons are duplicates** (script shows "LESSONS ALREADY INTEGRATED"):
+        - Report completion: "All lessons from this report already exist in knowledge base. No extraction needed."
       - **Why This Matters**: Lessons learned feed into future implementations, preventing repeated mistakes and capturing best practices for the team and AI agents.
+      - **DO NOT** ask user whether to proceed - this step is mandatory and automatic after validation passes
 
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list if needed.

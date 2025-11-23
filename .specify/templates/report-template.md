@@ -19,6 +19,12 @@ user_story: "[USN]"
 > - For failures, focus on root cause, fix, and impact—avoid lengthy storytelling.
 > - Use status icons (✅/⚠️/❌) and bolding for clarity.
 > - If a section is not applicable, omit it or state "N/A".
+> - **Phase/Story Numbering for General Content**: If a report section or lesson does not map directly to a specific phase or user story, use "N/A" or "Not Applicable" for the phase or story number, and assign a number in the 900 series (e.g., 901, 902, etc.). The 900 series is reserved for general implementation report content not tied to specific phases or stories. This ensures traceability and clarity in documentation and lessons learned.
+> - Section headers may be adapted for clarity (e.g., "Key Lessons Learned" is valid for "Lessons Learned").
+> - Recommended sections are optional; their absence should not fail validation.
+> - Reports with 2 or more substantive lessons learned are valid if each is detailed and actionable.
+> - The "Lessons Learned" section should be substantive (suggested: 12+ lines or 2+ detailed lessons), but quality is prioritized over length.
+> - Accept "N/A" or 900-series numbers for phase/story fields without warning.
 
 **Sprint**: [NNN-sprint-name]  
 **User Story**: [USN] - [User Story Title]  
@@ -175,3 +181,8 @@ user_story: "[USN]"
 *Report updated: YYYY-MM-DD (what changed)*  
 *Sprint: NNN-sprint-name*  
 *Phase: N of N*
+
+---
+
+**Note on 900 Series Numbering:**
+If this report or any section/lesson does not map directly to a specific phase or user story, use "N/A" or "Not Applicable" for the phase or story number, and assign a number in the 900 series (e.g., 901, 902, etc.). The 900 series is reserved for general implementation report content not tied to specific phases or stories.

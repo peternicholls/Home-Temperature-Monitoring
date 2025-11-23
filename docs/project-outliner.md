@@ -291,6 +291,9 @@ Each spec folder (`specs/NNN-name/`) contains:
 - **contracts/**: API contracts and interfaces
 - **tasks.md**: Detailed task list with status tracking
 
+#### Phase/Story Numbering for General Content
+If a report or documentation section does not map directly to a specific phase or user story, use "N/A" or "Not Applicable" for the phase or story number, and assign a number in the 900 series (e.g., 901, 902, etc.). The 900 series is reserved for general implementation report content not tied to specific phases or stories. This convention must be followed in all implementation reports and lessons learned extraction for clarity and traceability.
+
 ## Project Sprints
 
 ### Completed Sprints
