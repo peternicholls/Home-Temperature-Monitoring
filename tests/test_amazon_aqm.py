@@ -13,7 +13,7 @@ import inspect
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest_asyncio
 
-from source.collectors.amazon_collector import AmazonAQMCollector
+from source.collectors.amazon_unified_collector import AmazonUnifiedCollector as AmazonAQMCollector
 
 
 class TestAmazonAQMCollectorInitialization:
@@ -320,11 +320,15 @@ class TestFormatReading:
         """Test formatting readings for database insertion."""
         cookies = {'session-id': 'test', 'session-token': 'token', 'csrf': 'csrf'}
         config = {
+            'collectors': {
+                'general': {
+                    'fallback_location': 'Unknown'
+                }
+            },
             'amazon_aqm': {
                 'device_locations': {
                     'GAJ23005314600H3': 'Living Room'
-                },
-                'fallback_location': 'Unknown'
+                }
             }
         }
         
@@ -356,9 +360,13 @@ class TestFormatReading:
         """Test formatting with unknown device location."""
         cookies = {'session-id': 'test', 'session-token': 'token', 'csrf': 'csrf'}
         config = {
+            'collectors': {
+                'general': {
+                    'fallback_location': 'Unknown'
+                }
+            },
             'amazon_aqm': {
-                'device_locations': {},
-                'fallback_location': 'Unknown'
+                'device_locations': {}
             }
         }
         
