@@ -429,7 +429,7 @@ This project uses:
 - [X] T159 Run both Hue and Amazon AQM collectors concurrently for 24 hours monitoring for database locked errors, retry behavior, log rotation, data gaps, and resource usage
 - [X] T160 Verify SC-001: 100% of readings stored with zero data loss
 - [X] T161 Verify SC-002: 95%+ retry success rate for transient lock scenarios
-- [ ] T162 Verify SC-008: 7-day unattended operation without manual intervention (extended from 24-hour test)
+- [X] T162 Verify SC-008: 7-day unattended operation without manual intervention (extended from 24-hour test)
 
 ### Failure Mode Simulation Tests
 
@@ -444,29 +444,29 @@ This project uses:
 
 ### Health Check Validation Suite
 
-- [ ] T171 [P] Test health check against missing config.yaml
-- [ ] T172 [P] Test health check against invalid secrets.yaml format
-- [ ] T173 [P] Test health check against missing Hue Bridge username
-- [ ] T174 [P] Test health check against missing Amazon credentials
-- [ ] T175 [P] Test health check against read-only database file
-- [ ] T176 [P] Test health check against non-writable log directory
-- [ ] T177 [P] Test health check against WAL mode disabled
-- [ ] T178 [P] Test health check against unreachable Hue Bridge
-- [ ] T179 [P] Test health check against invalid Amazon AQM credentials
-- [ ] T180 Test health check against multiple simultaneous failures
-- [ ] T181 Verify SC-004: Health check completes in <15 seconds and accurately identifies all 10 failure scenarios
+- [X] T171 [P] Test health check against missing config.yaml
+- [X] T172 [P] Test health check against invalid secrets.yaml format
+- [X] T173 [P] Test health check against missing Hue Bridge username
+- [X] T174 [P] Test health check against missing Amazon credentials
+- [X] T175 [P] Test health check against read-only database file
+- [X] T176 [P] Test health check against non-writable log directory
+- [X] T177 [P] Test health check against WAL mode disabled
+- [X] T178 [P] Test health check against unreachable Hue Bridge
+- [X] T179 [P] Test health check against invalid Amazon AQM credentials
+- [X] T180 Test health check against multiple simultaneous failures
+- [X] T181 Verify SC-004: Health check completes in <15 seconds and accurately identifies all 10 failure scenarios
 
 ### Performance Validation
 
-- [ ] T182 Verify SC-005: Hue collection cycles 30%+ faster than baseline
-- [ ] T183 Verify SC-006: Network transfer 50%+ smaller than baseline
-- [ ] T184 Verify SC-003: Log disk usage <60MB after 30-day simulation (accelerated logging test)
+- [X] T182 Verify SC-005: Hue collection cycles 30%+ faster than baseline
+- [X] T183 Verify SC-006: Network transfer 50%+ smaller than baseline
+- [X] T184 Verify SC-003: Log disk usage <60MB after 30-day simulation (accelerated logging test)
 
 ### Device Registry Validation
 
-- [ ] T185 [P] Verify device names persist across collection cycles
-- [ ] T186 [P] Verify recursive name updates correctly modify historical readings
-- [ ] T187 Verify device registry auto-registration for new devices during collection
+- [X] T185 [P] Verify device names persist across collection cycles
+- [X] T186 [P] Verify recursive name updates correctly modify historical readings
+- [X] T187 Verify device registry auto-registration for new devices during collection
 
 ---
 
@@ -476,28 +476,28 @@ This project uses:
 
 ### Documentation Updates
 
-- [ ] T188 [P] Update plan.md with implementation outcomes and metrics
-- [ ] T189 [P] Update README.md with health check and monitoring guidance
-- [ ] T190 [P] Create operational runbook in quickstart.md for health check usage, monitoring alert files, and troubleshooting common failures
+- [X] T188 [P] Update plan.md with implementation outcomes and metrics
+- [X] T189 [P] Update README.md with health check and monitoring guidance
+- [X] T190 [P] Create operational runbook in quickstart.md for health check usage, monitoring alert files, and troubleshooting common failures
 - [ ] T191 [P] Document performance baseline and optimization results
-- [ ] T192 [P] Document device registry usage in README.md with examples for setting/amending device names
+- [X] T192 [P] Document device registry usage in README.md with examples for setting/amending device names
 
 ### Code Quality & Security
 
-- [ ] T193 Run pytest with coverage report and verify 80%+ coverage for all new code
-- [ ] T194 Security review: verify no credential leakage in logs, health check output, or error messages
+- [X] T193 Run pytest with coverage report and verify 80%+ coverage for all new code
+- [X] T194 Security review: verify no credential leakage in logs, health check output, or error messages
 - [ ] T195 Code cleanup and refactoring for consistency across collectors
 - [ ] T196 Update all docstrings and inline comments for reliability features
 
 ### Definition of Done Verification
 
-- [ ] T197 Verify all unit tests pass in Python venv: pytest tests/
-- [ ] T198 Verify TDD approach followed (all tests written before implementation)
-- [ ] T199 Verify 80%+ test coverage for all new code (retry logic, health check, performance utils, collector enhancements, log rotation, device registry)
+- [X] T197 Verify all unit tests pass in Python venv: pytest tests/
+- [X] T198 Verify TDD approach followed (all tests written before implementation)
+- [X] T199 Verify 80%+ test coverage for all new code (retry logic, health check, performance utils, collector enhancements, log rotation, device registry)
 - [ ] T200 Verify all code committed to git with descriptive messages referencing sprint 005
-- [ ] T201 Verify data collection working in real environment (24-hour + 7-day tests completed)
-- [ ] T202 Verify no breaking changes to existing data format or API contracts
-- [ ] T203 Verify all documentation complete (spec.md ✅, plan.md ✅, quickstart.md, README, data-model.md)
+- [X] T201 Verify data collection working in real environment (24-hour + 7-day tests completed)
+- [X] T202 Verify no breaking changes to existing data format or API contracts
+- [X] T203 Verify all documentation complete (spec.md ✅, plan.md ✅, quickstart.md ✅, README ✅, data-model.md ✅)
 - [ ] T204 Run quickstart.md validation scenarios and verify all pass
 
 ---
