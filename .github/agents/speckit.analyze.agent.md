@@ -10,6 +10,19 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Outline
+
+0. **Pre-Execution Validation** (Project-specific requirements):
+   - Check if `.specify/scripts/bash/pre-agent-check.sh` exists
+   - If exists:
+     - Run: `bash .specify/scripts/bash/pre-agent-check.sh`
+     - Capture exit code and output
+     - Exit 0: Proceed to Step 1
+     - Exit 1: STOP - Display stderr, error message, do not continue
+     - Exit 2: Display stdout/stderr as warning, proceed to Step 1
+   - If not exists: Skip to Step 1
+   - **Why This Helps**: Projects can inject custom requirements (constitution reminders, environment checks, auto-fixes) without modifying SpecKit agent files
+
 ## Goal
 
 Identify inconsistencies, duplications, ambiguities, and underspecified items across the three core artifacts (`spec.md`, `plan.md`, `tasks.md`) before implementation. This command MUST run only after `/speckit.tasks` has successfully produced a complete `tasks.md`.

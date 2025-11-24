@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS readings (
     device_id TEXT NOT NULL,
     temperature_celsius REAL NOT NULL,
     location TEXT NOT NULL,
-    device_type TEXT NOT NULL CHECK(device_type IN ('hue_sensor', 'nest_thermostat', 'weather_api', 'alexa_aqm')),
+    name TEXT,
+    device_type TEXT NOT NULL CHECK(device_type IN ('hue_sensor', 'nest_thermostat', 'weather_api', 'alexa_aqm', 'amazon_aqm')),
     is_anomalous BOOLEAN DEFAULT 0,
     humidity_percent REAL CHECK(humidity_percent IS NULL OR (humidity_percent >= 0 AND humidity_percent <= 100)),
     pm25_ugm3 REAL CHECK(pm25_ugm3 IS NULL OR pm25_ugm3 >= 0),
@@ -31,4 +32,19 @@ CREATE INDEX IF NOT EXISTS idx_readings_device_timestamp ON readings(device_id, 
 CREATE INDEX IF NOT EXISTS idx_readings_location ON readings(location);
 CREATE INDEX IF NOT EXISTS idx_readings_device_type ON readings(device_type);
 CREATE INDEX IF NOT EXISTS idx_readings_anomalous ON readings(is_anomalous) WHERE is_anomalous = 1;
+
+CREATE TABLE IF NOT EXISTS device_registry (
+    device_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_type TEXT NOT NULL,
+    device_name TEXT,
+    location TEXT,
+    unique_id TEXT NOT NULL UNIQUE,
+    model_info TEXT,
+    first_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_active INTEGER DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS idx_device_unique_id ON device_registry(unique_id);
+CREATE INDEX IF NOT EXISTS idx_device_type ON device_registry(device_type);
+CREATE INDEX IF NOT EXISTS idx_device_active ON device_registry(is_active) WHERE is_active = 1;
 """

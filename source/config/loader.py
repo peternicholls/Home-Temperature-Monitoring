@@ -34,3 +34,28 @@ def validate_secrets_file(path: str = SECRETS_PATH) -> list:
     except Exception as e:
         errors.append(str(e))
     return errors
+
+
+class ConfigLoader:
+    """Configuration loader class for health checks and other components."""
+    
+    def __init__(self, config_path: str = CONFIG_PATH, secrets_path: str = SECRETS_PATH):
+        """Initialize configuration loader."""
+        self.config_path = config_path
+        self.secrets_path = secrets_path
+        self._config = None
+        self._secrets = None
+    
+    @property
+    def config(self) -> dict:
+        """Load and return configuration (cached)."""
+        if self._config is None:
+            self._config = load_yaml(self.config_path)
+        return self._config or {}
+    
+    @property
+    def secrets(self) -> dict:
+        """Load and return secrets (cached)."""
+        if self._secrets is None:
+            self._secrets = load_yaml(self.secrets_path)
+        return self._secrets or {}

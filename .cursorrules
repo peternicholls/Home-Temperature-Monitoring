@@ -1,0 +1,73 @@
+# Home Temperature Monitoring - Cursor Rules
+
+## ⚠️ CRITICAL: Python Virtual Environment Required
+
+**BEFORE running ANY Python command** (pytest, pip, python, etc.):
+
+1. **Quick check venv status**:
+```bash
+.specify/scripts/bash/check-venv.sh
+# Shows: active/inactive, Python path, installed packages
+```
+
+2. **Or manually check if venv is active**:
+```bash
+which python
+# Must output: /Users/peternicholls/Dev/HomeTemperatureMonitoring/venv/bin/python
+```
+
+3. **If not active, activate it**:
+```bash
+source venv/bin/activate
+```
+
+4. **Or use automation**:
+```bash
+source .specify/scripts/bash/init-agent-session.sh
+```
+
+## Why This Matters
+
+Running Python commands outside the virtual environment causes:
+- ❌ `ModuleNotFoundError: No module named 'phue'`
+- ❌ `ModuleNotFoundError: No module named 'yaml'`
+- ❌ Test failures before tests even run
+- ❌ Wasted time debugging non-existent code issues
+
+## Project Constitution
+
+Read these files FIRST before any work:
+- `.specify/memory/constitution.md` (Critical Reminders #1-6)
+- `docs/project-outliner.md`
+
+**Critical Reminder #1**: "ALWAYS ACTIVATE PYTHON VENV FIRST"
+
+## Test-Driven Development
+
+This project follows strict TDD:
+1. Write tests FIRST
+2. Run tests (they should fail initially)
+3. Implement code to make tests pass
+4. Minimum 80% coverage required
+
+## Implementation Reports Required
+
+After completing ANY phase:
+1. Run: `.specify/scripts/bash/write-implementation-report.sh`
+2. Fill in all sections
+3. Validate: `.specify/scripts/bash/validate-report.sh <report-file>`
+4. Extract lessons learned (when script available)
+
+## Session Initialization
+
+**Run at start of EVERY session**:
+```bash
+source .specify/scripts/bash/init-agent-session.sh
+```
+
+This displays:
+- Constitution reminders
+- Auto-activates venv
+- Shows current feature context
+- Checks prerequisites
+- Reports task status

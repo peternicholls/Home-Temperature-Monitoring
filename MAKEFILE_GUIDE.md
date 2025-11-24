@@ -62,11 +62,38 @@ make logs-tail      # Follow logs in real-time (Ctrl+C to stop)
 make logs-clear     # Clear all log files
 ```
 
+### Health Check & Setup Verification
+
+```bash
+make health-check   # Run comprehensive health check of system
+make verify-setup   # Verify configuration and system setup (pre-collection check)
+```
+
+### Evaluation & Testing
+
+```bash
+make evaluate       # Run evaluation framework on collected data (SC-001, SC-002, SC-007)
+```
+
 ### Testing
 
 ```bash
 make test           # Full integration test (discover, collect, verify)
 make test-quick     # Quick test (discovery + one collection)
+```
+
+### Health & Verification
+
+```bash
+make health-check   # Comprehensive system health check
+make verify-setup   # Verify configuration before collection
+```
+
+### Evaluation & Analysis
+
+```bash
+make evaluate       # Run evaluation framework on collected data
+make log-stats      # Generate summary statistics from logs
 ```
 
 ### Development

@@ -78,6 +78,35 @@ done
 SCRIPT_DIR="$(CDPATH="" cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
+# Verify Python venv is active (REQUIRED for implementation, optional for planning)
+if [[ -d "$SCRIPT_DIR/../../../source" ]] && [[ -n "$(find "$SCRIPT_DIR/../../../source" -name '*.py' -print -quit 2>/dev/null)" ]]; then
+    # Check if this is an implementation run (has --require-tasks flag)
+    if $REQUIRE_TASKS; then
+        # BLOCKING check for implementation phase
+        if ! "$SCRIPT_DIR/verify-venv.sh" >/dev/null 2>&1; then
+            echo "❌ ERROR: Python venv not active - REQUIRED for implementation" >&2
+            echo "" >&2
+            echo "   Constitution Critical Reminder #1:" >&2
+            echo "   ALWAYS ACTIVATE PYTHON VENV FIRST before any Python commands" >&2
+            echo "" >&2
+            echo "   Activate now:" >&2
+            echo "   → source venv/bin/activate" >&2
+            echo "" >&2
+            echo "   Or run session initialization:" >&2
+            echo "   → source .specify/scripts/bash/init-agent-session.sh" >&2
+            echo "" >&2
+            echo "   Verify after activation:" >&2
+            echo "   → which python  # Must show: $SCRIPT_DIR/../../../venv/bin/python" >&2
+            exit 1
+        fi
+    else
+        # Non-blocking warning for planning/specification phases
+        if ! "$SCRIPT_DIR/verify-venv.sh" >/dev/null 2>&1; then
+            echo "⚠️  Warning: Python venv not active. Activate with: source venv/bin/activate" >&2
+        fi
+    fi
+fi
+
 # Get feature paths and validate branch
 eval $(get_feature_paths)
 check_feature_branch "$CURRENT_BRANCH" "$HAS_GIT" || exit 1

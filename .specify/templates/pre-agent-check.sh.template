@@ -1,0 +1,319 @@
+#!/usr/bin/env bash
+# Pre-agent execution checks - runs BEFORE any SpecKit agent outline
+# 
+# This is a TEMPLATE for pre-execution hooks. Customize for your project's needs.
+# 
+# Exit codes:
+#   0 - All checks passed, proceed with agent execution
+#   1 - Critical failure, BLOCK agent execution (agent stops with error)
+#   2 - Warning only, display message but proceed (non-blocking)
+#
+# Installation:
+#   1. Copy this template to: .specify/scripts/bash/pre-agent-check.sh
+#   2. Make executable: chmod +x .specify/scripts/bash/pre-agent-check.sh
+#   3. Customize sections below for your project
+#   4. Remove/comment unused checks
+#
+# Documentation: https://github.com/specify/SpecKit/docs/pre-execution-hooks.md
+
+set -e
+
+SCRIPT_DIR="$(CDPATH="" cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+#============================================================================
+# CUSTOMIZE THIS SECTION: Constitution/Project Reminders
+#============================================================================
+# Display project-specific requirements, constitution, or critical reminders
+# before agent execution begins.
+#
+# Examples:
+#   - Show constitution file contents
+#   - Call custom reminder display script
+#   - Print project-specific warnings
+#   - Display team conventions
+#
+# CUSTOMIZE: Adjust paths and logic for your project structure
+
+if [[ -f "$REPO_ROOT/.specify/memory/constitution.md" ]]; then
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📋 PROJECT REQUIREMENTS"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Option 1: Call custom script if it exists
+    if [[ -f "$SCRIPT_DIR/show-constitution-reminders.sh" ]]; then
+        bash "$SCRIPT_DIR/show-constitution-reminders.sh" --quiet || true
+    # Option 2: Extract section from constitution file
+    elif grep -q "Critical Reminders" "$REPO_ROOT/.specify/memory/constitution.md" 2>/dev/null; then
+        sed -n '/## ⚠️ Critical Reminders/,/^## /p' "$REPO_ROOT/.specify/memory/constitution.md" | head -n -1
+    # Option 3: Show first N lines as fallback
+    else
+        head -n 15 "$REPO_ROOT/.specify/memory/constitution.md"
+    fi
+    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+fi
+
+#============================================================================
+# CUSTOMIZE THIS SECTION: Python Virtual Environment
+#============================================================================
+# Detect Python projects and ensure virtual environment is activated.
+# Prevents ModuleNotFoundError and dependency issues.
+#
+# Detection methods (choose what fits your project):
+#   - Check for source/, src/, app/ directory with .py files
+#   - Check for requirements.txt, pyproject.toml, setup.py
+#   - Check for venv/, .venv/, env/ directory
+#
+# CUSTOMIZE: Adjust detection logic and venv path for your project
+
+# Detect Python project (adjust paths as needed)
+PYTHON_DETECTED=false
+if [[ -f "$REPO_ROOT/requirements.txt" ]] || \
+   [[ -f "$REPO_ROOT/pyproject.toml" ]] || \
+   [[ -f "$REPO_ROOT/setup.py" ]] || \
+   [[ -d "$REPO_ROOT/src" && -n "$(find "$REPO_ROOT/src" -maxdepth 2 -name '*.py' -print -quit 2>/dev/null)" ]] || \
+   [[ -d "$REPO_ROOT/source" && -n "$(find "$REPO_ROOT/source" -maxdepth 2 -name '*.py' -print -quit 2>/dev/null)" ]]; then
+    PYTHON_DETECTED=true
+fi
+
+if [[ "$PYTHON_DETECTED" == "true" ]]; then
+    echo "🐍 Python project detected - checking virtual environment..."
+    
+    if [[ -z "$VIRTUAL_ENV" ]]; then
+        # Try to auto-activate venv (adjust paths to match your project)
+        VENV_PATHS=("$REPO_ROOT/venv" "$REPO_ROOT/.venv" "$REPO_ROOT/env")
+        ACTIVATED=false
+        
+        for VENV_PATH in "${VENV_PATHS[@]}"; do
+            if [[ -f "$VENV_PATH/bin/activate" ]]; then
+                echo "   Activating virtual environment from $VENV_PATH..."
+                source "$VENV_PATH/bin/activate"
+                if [[ -n "$VIRTUAL_ENV" ]]; then
+                    echo "   ✅ Virtual environment activated: $VIRTUAL_ENV"
+                    ACTIVATED=true
+                    break
+                fi
+            fi
+        done
+        
+        if [[ "$ACTIVATED" == "false" ]]; then
+            echo "❌ ERROR: Python virtual environment required but not found" >&2
+            echo "   Create venv: python3 -m venv venv" >&2
+            echo "   Activate: source venv/bin/activate" >&2
+            exit 1  # BLOCK execution
+        fi
+    else
+        echo "   ✅ Virtual environment active: $VIRTUAL_ENV"
+    fi
+    echo ""
+fi
+
+#============================================================================
+# CUSTOMIZE THIS SECTION: Node.js Dependencies
+#============================================================================
+# Detect Node.js projects and check for installed dependencies.
+# Warns if node_modules is missing (non-blocking).
+#
+# Detection: package.json existence
+# Check: node_modules directory
+#
+# CUSTOMIZE: Change to blocking (exit 1) if your workflow requires it
+
+if [[ -f "$REPO_ROOT/package.json" ]]; then
+    echo "📦 Node.js project detected - checking dependencies..."
+    
+    if [[ ! -d "$REPO_ROOT/node_modules" ]]; then
+        echo "⚠️  WARNING: node_modules/ not found" >&2
+        echo "   Run: npm install (or yarn install, pnpm install)" >&2
+        # Non-blocking warning - change to 'exit 1' to block
+        exit 2
+    else
+        echo "   ✅ Dependencies installed"
+    fi
+    echo ""
+fi
+
+#============================================================================
+# CUSTOMIZE THIS SECTION: Rust/Cargo
+#============================================================================
+# Detect Rust projects and verify cargo is installed.
+# Blocks if cargo is missing.
+#
+# Detection: Cargo.toml existence
+# Check: cargo command availability
+#
+# CUSTOMIZE: Remove this section if not using Rust
+
+if [[ -f "$REPO_ROOT/Cargo.toml" ]]; then
+    echo "🦀 Rust project detected - checking cargo..."
+    
+    if ! command -v cargo &> /dev/null; then
+        echo "❌ ERROR: cargo command not found" >&2
+        echo "   Install Rust: https://rustup.rs/" >&2
+        exit 1  # BLOCK execution
+    else
+        echo "   ✅ Cargo available: $(cargo --version)"
+    fi
+    echo ""
+fi
+
+#============================================================================
+# CUSTOMIZE THIS SECTION: Go Modules
+#============================================================================
+# Detect Go projects and verify Go is installed.
+# Blocks if Go is missing.
+#
+# Detection: go.mod existence
+# Check: go command availability
+#
+# CUSTOMIZE: Remove this section if not using Go
+
+if [[ -f "$REPO_ROOT/go.mod" ]]; then
+    echo "🐹 Go project detected - checking Go installation..."
+    
+    if ! command -v go &> /dev/null; then
+        echo "❌ ERROR: go command not found" >&2
+        echo "   Install Go: https://go.dev/dl/" >&2
+        exit 1  # BLOCK execution
+    else
+        echo "   ✅ Go available: $(go version)"
+    fi
+    echo ""
+fi
+
+#============================================================================
+# CUSTOMIZE THIS SECTION: Docker Daemon
+#============================================================================
+# Check if Docker daemon is running (if project uses Docker).
+# Warns if Docker is not available (non-blocking).
+#
+# Detection: Dockerfile, docker-compose.yml, .dockerignore
+# Check: docker info command
+#
+# CUSTOMIZE: Change to blocking (exit 1) if Docker is critical
+
+if [[ -f "$REPO_ROOT/Dockerfile" ]] || [[ -f "$REPO_ROOT/docker-compose.yml" ]]; then
+    echo "🐳 Docker configuration detected - checking Docker daemon..."
+    
+    if ! docker info >/dev/null 2>&1; then
+        echo "⚠️  WARNING: Docker daemon not running" >&2
+        echo "   Start Docker Desktop or dockerd" >&2
+        # Non-blocking warning - change to 'exit 1' to block
+        exit 2
+    else
+        echo "   ✅ Docker daemon running"
+    fi
+    echo ""
+fi
+
+#============================================================================
+# CUSTOMIZE THIS SECTION: Database Connection
+#============================================================================
+# Check if required database services are running.
+# Examples: PostgreSQL, MySQL, MongoDB, Redis
+#
+# CUSTOMIZE: Uncomment and adjust for your database
+
+# PostgreSQL example
+# if ! nc -z localhost 5432 >/dev/null 2>&1; then
+#     echo "⚠️  WARNING: PostgreSQL not running on localhost:5432" >&2
+#     exit 2  # Warning only (change to 'exit 1' to block)
+# fi
+
+# MySQL example
+# if ! nc -z localhost 3306 >/dev/null 2>&1; then
+#     echo "⚠️  WARNING: MySQL not running on localhost:3306" >&2
+#     exit 2
+# fi
+
+# MongoDB example
+# if ! nc -z localhost 27017 >/dev/null 2>&1; then
+#     echo "⚠️  WARNING: MongoDB not running on localhost:27017" >&2
+#     exit 2
+# fi
+
+# Redis example
+# if ! redis-cli ping >/dev/null 2>&1; then
+#     echo "⚠️  WARNING: Redis not running" >&2
+#     exit 2
+# fi
+
+#============================================================================
+# CUSTOMIZE THIS SECTION: Git Branch Naming
+#============================================================================
+# Enforce branch naming conventions (feature/, bugfix/, hotfix/, etc.)
+# Blocks if branch name doesn't match pattern.
+#
+# CUSTOMIZE: Adjust pattern to match your team's conventions
+
+# CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+# BRANCH_PATTERN="^(feature|bugfix|hotfix|chore)/[a-z0-9-]+$"
+# 
+# if ! [[ "$CURRENT_BRANCH" =~ $BRANCH_PATTERN ]] && [[ "$CURRENT_BRANCH" != "main" ]] && [[ "$CURRENT_BRANCH" != "master" ]]; then
+#     echo "⚠️  WARNING: Branch name doesn't follow convention" >&2
+#     echo "   Current: $CURRENT_BRANCH" >&2
+#     echo "   Expected: feature/*, bugfix/*, hotfix/*, chore/*" >&2
+#     exit 2  # Warning only (change to 'exit 1' to block)
+# fi
+
+#============================================================================
+# CUSTOMIZE THIS SECTION: Environment Variables
+#============================================================================
+# Check for required environment variables.
+# Blocks if critical variables are missing.
+#
+# CUSTOMIZE: Add your required environment variables
+
+# Example: Check for API keys
+# if [[ -z "$API_KEY" ]]; then
+#     echo "❌ ERROR: API_KEY environment variable not set" >&2
+#     echo "   Export: export API_KEY=your-key-here" >&2
+#     exit 1  # BLOCK execution
+# fi
+
+# Example: Check for .env file
+# if [[ ! -f "$REPO_ROOT/.env" ]]; then
+#     echo "⚠️  WARNING: .env file not found" >&2
+#     echo "   Copy from template: cp .env.example .env" >&2
+#     exit 2  # Warning only
+# fi
+
+#============================================================================
+# CUSTOMIZE THIS SECTION: Custom Project Checks
+#============================================================================
+# Add any other project-specific validation here.
+#
+# Examples:
+#   - Check for required tools (kubectl, terraform, aws-cli, etc.)
+#   - Verify configuration files exist
+#   - Check disk space or system resources
+#   - Validate credentials or tokens
+#   - Run custom validation scripts
+
+# Example: Check for kubectl (Kubernetes projects)
+# if [[ -d "$REPO_ROOT/k8s" ]] && ! command -v kubectl &> /dev/null; then
+#     echo "❌ ERROR: kubectl not found (required for k8s projects)" >&2
+#     exit 1
+# fi
+
+# Example: Check for terraform (Infrastructure projects)
+# if [[ -f "$REPO_ROOT/main.tf" ]] && ! command -v terraform &> /dev/null; then
+#     echo "❌ ERROR: terraform not found" >&2
+#     exit 1
+# fi
+
+# Example: Check available disk space
+# AVAILABLE_GB=$(df -h "$REPO_ROOT" | awk 'NR==2 {print $4}' | sed 's/Gi*//')
+# if [[ "${AVAILABLE_GB%.*}" -lt 10 ]]; then
+#     echo "⚠️  WARNING: Low disk space (${AVAILABLE_GB}GB available)" >&2
+#     exit 2
+# fi
+
+#============================================================================
+# Success - All checks passed
+#============================================================================
+
+echo "✅ Pre-execution checks complete - proceeding with agent execution"
+exit 0

@@ -161,7 +161,215 @@ make db-query SQL="SELECT device_id, temperature_celsius, timestamp FROM reading
 sqlite3 data/readings.db "SELECT device_id, temperature_celsius, humidity_percent FROM readings LIMIT 10;"
 ```
 
-### 7. Development Commands
+### 8. Device Registry - Custom Device Names (Phase 9)
+
+The device registry allows you to assign friendly names to your sensors, making readings easier to understand. Device names are stored in a **user-editable YAML file** at `config/device_registry.yaml`.
+
+**Automatic Name Inference**:
+When devices are first discovered, they automatically receive descriptive names based on their location and type:
+- `Hall Hue Sensor` (from location "Hall" + device type "hue_sensor")
+- `Living Room AQM` (from location "Living Room" + device type "alexa_aqm")
+- `Utility Nest Thermostat` (from location "Utility" + device type "nest_thermostat")
+
+**Customize Device Names - Three Methods**:
+
+1. **Edit YAML File Directly** (Recommended - Simplest):
+   ```bash
+   # Open config/device_registry.yaml in any text editor
+   nano config/device_registry.yaml
+   ```
+   
+   Find your device and change the `name` field:
+   ```yaml
+   devices:
+     hue:00:17:88:01:02:02:b5:21-02-0402:
+       name: Kitchen Temperature Monitor  # ← Edit this
+       location: Utility
+       device_type: hue_sensor
+       model_info: SML001
+   ```
+   
+   Changes take effect immediately on the next collection (no restart needed).
+
+2. **Use Makefile Commands**:
+   ```bash
+   # List all registered devices
+   make devices-list
+   
+   # Set a custom device name
+   make devices-set-name DEVICE_ID="hue:00:17:88:01:02:3a:bc:de-02-0402" NAME="Kitchen Sensor"
+   ```
+
+3. **Use Python CLI Directly**:
+   ```bash
+   # List devices with filtering
+   python source/storage/device_manager.py --list-devices
+   python source/storage/device_manager.py --list-devices --type hue_sensor
+   
+   # Set device name
+   python source/storage/device_manager.py --set-name "hue:ABC123" "Kitchen Sensor"
+   ```
+
+**How it works**:
+- Devices are automatically registered in `config/device_registry.yaml` when first discovered
+- Custom names appear in collection output: `✅ Kitchen Temperature Monitor: 20.5°C [Battery: 100%]`
+- Names persist across restarts and are immediately reflected in new readings
+- YAML format is human-readable and safe to edit manually
+- Device metadata (first_seen, last_seen, model_info) is tracked automatically
+
+**For detailed documentation**, see [`config/DEVICE_REGISTRY_README.md`](config/DEVICE_REGISTRY_README.md) which covers:
+- Complete YAML structure explanation
+- Device ID format reference
+- Troubleshooting common issues
+- Best practices for name management
+
+### 8. Device Registry - Custom Device Names (Phase 9)
+
+The device registry allows you to assign friendly names to your sensors, making readings easier to understand. Device names are stored in a **user-editable YAML file** at `config/device_registry.yaml`.
+
+**Automatic Name Inference**:
+When devices are first discovered, they automatically receive descriptive names based on their location and type:
+- `Hall Hue Sensor` (from location "Hall" + device type "hue_sensor")
+- `Living Room AQM` (from location "Living Room" + device type "alexa_aqm")
+- `Utility Nest Thermostat` (from location "Utility" + device type "nest_thermostat")
+
+**Customize Device Names - Three Methods**:
+
+1. **Edit YAML File Directly** (Recommended - Simplest):
+   ```bash
+   # Open config/device_registry.yaml in any text editor
+   nano config/device_registry.yaml
+   ```
+   
+   Find your device and change the `name` field:
+   ```yaml
+   devices:
+     hue:00:17:88:01:02:02:b5:21-02-0402:
+       name: Kitchen Temperature Monitor  # ← Edit this
+       location: Utility
+       device_type: hue_sensor
+       model_info: SML001
+   ```
+   
+   Changes take effect immediately on the next collection (no restart needed).
+
+2. **Use Makefile Commands**:
+   ```bash
+   # List all registered devices
+   make devices-list
+   
+   # Set a custom device name
+   make devices-set-name DEVICE_ID="hue:00:17:88:01:02:3a:bc:de-02-0402" NAME="Kitchen Sensor"
+   ```
+
+3. **Use Python CLI Directly**:
+   ```bash
+   # List devices with filtering
+   python source/storage/device_manager.py --list-devices
+   python source/storage/device_manager.py --list-devices --type hue_sensor
+   
+   # Set device name
+   python source/storage/device_manager.py --set-name "hue:ABC123" "Kitchen Sensor"
+   ```
+
+**How it works**:
+- Devices are automatically registered in `config/device_registry.yaml` when first discovered
+- Custom names appear in collection output: `✅ Kitchen Temperature Monitor: 20.5°C [Battery: 100%]`
+- Names persist across restarts and are immediately reflected in new readings
+- YAML format is human-readable and safe to edit manually
+- Device metadata (first_seen, last_seen, model_info) is tracked automatically
+
+**For detailed documentation**, see [`config/DEVICE_REGISTRY_README.md`](config/DEVICE_REGISTRY_README.md) which covers:
+- Complete YAML structure explanation
+- Device ID format reference
+- Troubleshooting common issues
+- Best practices for name management
+
+### 9. Health Check & System Monitoring (Production Reliability)
+
+Before deploying to production, verify your system is properly configured with the health check utility.
+
+**Run Health Check**:
+```bash
+# Run comprehensive system health check
+python source/health_check.py
+
+# Expected output (all pass):
+# ✅ Database WAL Mode: Enabled
+# ✅ Configuration: Valid
+# ✅ Secrets: Present
+# ✅ Database Write: Success
+# ✅ Log Rotation: Configured
+# ✅ Hue Bridge: Connected
+# ✅ Amazon AQM: Connected
+# 
+# Health Check: PASS (all checks passed)
+# Exit code: 0
+```
+
+**Exit Codes**:
+- `0`: All checks passed - system ready for production
+- `1`: Some checks failed - review errors and remediation guidance
+- `2`: Critical failure - system cannot operate (e.g., database unwritable)
+
+**What It Checks**:
+1. **Database WAL Mode**: Verifies Write-Ahead Logging enabled for concurrent access
+2. **Configuration**: Validates `config/config.yaml` structure and required fields
+3. **Secrets**: Confirms `config/secrets.yaml` exists with API credentials
+4. **Database Write**: Tests write operation (with rollback) to verify database writable
+5. **Log Rotation**: Checks log directory writable and rotation configured
+6. **Hue Bridge Connectivity**: Verifies Hue Bridge reachable and authenticated
+7. **Amazon AQM Connectivity**: Validates Amazon API credentials and device access
+
+**Monitoring Alert Files**:
+
+The system creates alert files in `data/` when manual intervention is needed:
+
+- **`data/ALERT_TOKEN_REFRESH_NEEDED.txt`**: Amazon OAuth token expired
+  - **Action**: Re-run authentication: `make web-start` → http://localhost:5001/setup
+  - **Auto-clears**: Alert file deleted on next successful collection
+  
+**Health Check in CI/CD**:
+```bash
+# Add to deployment pipeline
+python source/health_check.py || exit 1
+
+# Or with timeout
+timeout 15s python source/health_check.py || exit 1
+```
+
+**Troubleshooting Common Failures**:
+
+| Error | Cause | Remediation |
+|-------|-------|-------------|
+| WAL mode disabled | Database created without WAL | Delete `data/readings.db` and recreate |
+| Missing secrets | `config/secrets.yaml` not found | Run authentication: `make auth` and `make web-start` |
+| Database read-only | File permissions incorrect | `chmod 644 data/readings.db` |
+| Hue Bridge unreachable | Network issue or IP changed | Verify IP in `config/config.yaml`, check network |
+| Amazon credentials invalid | Cookies expired (24h lifespan) | Re-authenticate via web UI |
+| Log directory not writable | Permission issue | `chmod 755 logs/` |
+
+**Performance Monitoring**:
+
+Monitor collection cycle performance to detect degradation:
+
+```bash
+# Check logs for performance metrics
+grep "Collection cycle completed" logs/temperature_monitoring.log
+
+# Example output:
+# 2025-11-23 10:05:32 - INFO - Collection cycle completed in 2.34s (4 devices, 12 readings)
+```
+
+**Production Deployment Checklist**:
+1. ✅ Run health check and verify all pass
+2. ✅ Test 24-hour continuous operation
+3. ✅ Verify log rotation (check disk usage < 60MB)
+4. ✅ Set up monitoring for alert files (`data/ALERT_*.txt`)
+5. ✅ Configure email notifications (optional, in `config/config.yaml`)
+6. ✅ Schedule regular health checks (e.g., daily cron job)
+
+### 10. Development Commands
 
 ```bash
 # View logs
@@ -213,6 +421,83 @@ specs/
 ├── 001-project-foundation/  # Initial setup documentation
 └── 002-hue-integration/     # Hue feature specification
 ```
+
+## Pre-Execution Hook System
+
+This project uses **SpecKit's Pre-Execution Hook** system to prevent common development issues and reduce session failures from ~15-20% to <5%.
+
+### How It Works
+
+Before any SpecKit agent command (`/speckit.implement`, `/speckit.plan`, etc.) starts work, it automatically:
+
+1. **Displays Constitution Reminders**: Shows critical project principles to prevent mistakes
+2. **Activates Python venv**: Auto-detects and activates virtual environment
+3. **Validates Environment**: Checks required setup before proceeding
+4. **Blocks on Errors**: Stops execution if critical issues found (exit 1)
+5. **Warns on Issues**: Shows warnings but continues if non-critical (exit 2)
+
+### Exit Code Behavior
+
+| Exit Code | Meaning | Agent Behavior |
+|-----------|---------|----------------|
+| `0` | Success - all checks passed | Proceed to agent work |
+| `1` | Critical failure | **STOP** - fix issue first |
+| `2` | Warning - non-critical | Show warning, continue |
+
+### Manual Testing
+
+Test the pre-check script independently:
+
+```bash
+# Normal execution (exit 0 expected)
+bash .specify/scripts/bash/pre-agent-check.sh
+echo $?  # Should show 0
+
+# Deactivate venv and test auto-activation
+deactivate
+bash .specify/scripts/bash/pre-agent-check.sh  # Should auto-activate
+```
+
+### Customization
+
+The pre-check script is located at `.specify/scripts/bash/pre-agent-check.sh`. Customize it to add:
+
+- Additional environment variable checks
+- Database connection validation
+- API credential verification
+- Custom project-specific requirements
+
+**Note**: The pre-check script is optional. If it doesn't exist, agents skip directly to their core work (backward compatible).
+
+### Troubleshooting Pre-Check Failures
+
+**venv activation fails**:
+```bash
+# Ensure venv exists
+python3 -m venv venv
+
+# Manually activate and test
+source venv/bin/activate
+which python  # Should show path to venv/bin/python
+```
+
+**Constitution reminders not showing**:
+```bash
+# Test helper script directly
+bash .specify/scripts/bash/show-constitution-reminders.sh
+```
+
+**Pre-check script blocked**:
+- Read error message carefully (shows what failed)
+- Fix the reported issue before re-running agent
+- For persistent issues, temporarily rename script to bypass: `mv .specify/scripts/bash/pre-agent-check.sh{,.bak}`
+
+For more details, see:
+- **Implementation Spec**: `specs/006-pre-execution-hook/spec.md`
+- **Testing Instructions**: `specs/006-pre-execution-hook/TESTING_INSTRUCTIONS.md`
+- **Template for New Projects**: `.specify/templates/pre-agent-check.sh.template`
+
+---
 
 ## Documentation
 - [Project Constitution](docs/project-outliner.md) - Development principles and constraints

@@ -20,6 +20,17 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
+0. **Pre-Execution Validation** (Project-specific requirements):
+   - Check if `.specify/scripts/bash/pre-agent-check.sh` exists
+   - If exists:
+     - Run: `bash .specify/scripts/bash/pre-agent-check.sh`
+     - Capture exit code and output
+     - Exit 0: Proceed to Step 1
+     - Exit 1: STOP - Display stderr, error message, do not continue
+     - Exit 2: Display stdout/stderr as warning, proceed to Step 1
+   - If not exists: Skip to Step 1
+   - **Why This Helps**: Projects can inject custom requirements (constitution reminders, environment checks, auto-fixes) without modifying SpecKit agent files
+
 The text the user typed after `/speckit.specify` in the triggering message **is** the feature description. Assume you always have it available in this conversation even if `$ARGUMENTS` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
 
 Given that feature description, do this:

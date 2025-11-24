@@ -2,34 +2,38 @@
 """
 Evaluation framework for Home Temperature Monitoring System.
 
-This module implements comprehensive evaluation of the temperature collection system
-using custom evaluators for:
-1. Collection Completeness - Verify sensor discovery and reading collection
+This module analyzes real-world production data from the database to evaluate:
+1. Collection Completeness - Verify sensor discovery and reading collection rates
 2. Data Quality & Correctness - Validate format, temperature ranges, metadata
-3. System Reliability - Measure error handling and data persistence
+3. System Reliability - Measure database resilience, retry effectiveness, uptime
+
+Usage:
+    python source/evaluation.py [--days N] [--output-path PATH]
 """
 
 import os
 import json
 import sys
+import sqlite3
+import argparse
 from pathlib import Path
-from typing import Dict, Any, Optional
-import logging
-from datetime import datetime
+from typing import Dict, Any, Optional, List
+from datetime import datetime, timezone, timedelta
+import yaml
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Try to import Azure AI Evaluation SDK
-try:
-    from azure.ai.evaluation import evaluate
-except ImportError:
-    logger.error("azure-ai-evaluation not installed. Install with: pip install azure-ai-evaluation")
-    sys.exit(1)
+from source.utils.structured_logger import StructuredLogger
+
+
+def load_config() -> Dict[str, Any]:
+    """Load configuration from config.yaml."""
+    config_path = Path(__file__).parent.parent / "config" / "config.yaml"
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    config['component'] = 'evaluation'
+    return config
 
 
 class CollectionCompletenessEvaluator:
@@ -37,121 +41,166 @@ class CollectionCompletenessEvaluator:
     Evaluates sensor discovery and reading collection completeness.
     
     Metrics:
-    - Sensor discovery rate (expected_sensors vs actual)
-    - Reading collection rate (expected_readings vs actual)
+    - Device discovery rate (unique devices found)
+    - Reading collection rate (expected vs actual readings)
     - Location mapping accuracy
+    - Time coverage (gaps analysis)
     """
     
-    def __init__(self):
-        self.name = "collection_completeness"
+    def __init__(self, db_path: str, logger: StructuredLogger):
+        self.db_path = db_path
+        self.logger = logger
     
-    def __call__(
-        self,
-        *,
-        query_id: str,
-        scenario: str,
-        expected_sensors: int,
-        expected_readings: int,
-        expected_locations: Optional[str] = None,
-        **kwargs
-    ) -> Dict[str, Any]:
+    def evaluate(self, time_period_days: int = 1) -> Dict[str, Any]:
         """
-        Evaluate collection completeness for a given query.
+        Evaluate collection completeness for the specified time period.
         
         Args:
-            query_id: Unique query identifier
-            scenario: Description of the test scenario
-            expected_sensors: Number of sensors expected to be discovered
-            expected_readings: Number of readings expected to be collected
-            expected_locations: Comma-separated expected sensor locations
+            time_period_days: Number of days to analyze
             
         Returns:
-            Dict with completeness score (0-1), status, and details
+            Dict with completeness metrics
         """
         try:
-            # Normalize numeric inputs
-            expected_sensors = int(expected_sensors) if expected_sensors else 0
-            expected_readings = int(expected_readings) if expected_readings else 0
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
             
-            # Load actual responses from evaluation_responses.json
-            responses_file = Path(__file__).parent.parent / "data" / "evaluation_responses.json"
+            # Get time range
+            cursor.execute("""
+                SELECT MIN(timestamp), MAX(timestamp), COUNT(*)
+                FROM readings
+                WHERE timestamp >= datetime('now', '-{} days')
+            """.format(time_period_days))
             
-            if not responses_file.exists():
+            min_time, max_time, total_readings = cursor.fetchone()
+            
+            if not min_time or not max_time:
+                self.logger.warning("No readings found in specified time period", days=time_period_days)
                 return {
-                    "query_id": query_id,
-                    "completeness_score": 0.0,
-                    "status": "FAIL",
-                    "reason": "No evaluation responses file found",
-                    "error": "evaluation_responses.json missing"
-                }
-            
-            with open(responses_file) as f:
-                eval_data = json.load(f)
-            
-            # Extract scenario response
-            scenario_response = None
-            for response in eval_data.get("evaluation_responses", []):
-                if response.get("query_id") == query_id:
-                    scenario_response = response
-                    break
-            
-            if not scenario_response:
-                return {
-                    "query_id": query_id,
-                    "completeness_score": 0.0,
                     "status": "NO_DATA",
-                    "reason": f"No response data found for {query_id}"
+                    "completeness_score": 0.0,
+                    "reason": f"No readings found in last {time_period_days} days"
                 }
             
-            # Calculate completeness metrics
-            sensors_found = scenario_response.get("sensors_found", 0)
-            sensors_collected = scenario_response.get("sensors_collected", 0)
-            readings_collected = len(scenario_response.get("readings_collected", []))
+            # Parse timestamps
+            start_dt = datetime.fromisoformat(min_time.replace('+00:00', '')).replace(tzinfo=timezone.utc)
+            end_dt = datetime.fromisoformat(max_time.replace('+00:00', '')).replace(tzinfo=timezone.utc)
+            duration_hours = (end_dt - start_dt).total_seconds() / 3600
             
-            # Discovery completeness
-            discovery_rate = sensors_found / expected_sensors if expected_sensors > 0 else 0
+            # Count unique devices
+            cursor.execute("""
+                SELECT device_type, COUNT(DISTINCT device_id) as device_count
+                FROM readings
+                WHERE timestamp >= datetime('now', '-{} days')
+                GROUP BY device_type
+            """.format(time_period_days))
             
-            # Collection completeness
-            collection_rate = readings_collected / expected_readings if expected_readings > 0 else 0
+            devices_by_type = dict(cursor.fetchall())
+            total_devices = sum(devices_by_type.values())
             
-            # Location mapping completeness
-            location_accuracy = 1.0
-            if expected_locations and isinstance(expected_locations, str):
-                expected_locs = set(loc.strip() for loc in expected_locations.split(","))
-                actual_locs = set()
-                for reading in scenario_response.get("readings_collected", []):
-                    actual_locs.add(reading.get("location", ""))
-                
-                if expected_locs and actual_locs:
-                    matched = len(expected_locs & actual_locs)
-                    location_accuracy = matched / len(expected_locs) if expected_locs else 0
+            # Count readings per device
+            cursor.execute("""
+                SELECT device_type, device_id, location, COUNT(*) as reading_count
+                FROM readings
+                WHERE timestamp >= datetime('now', '-{} days')
+                GROUP BY device_type, device_id
+                ORDER BY device_type, reading_count DESC
+            """.format(time_period_days))
             
-            # Overall completeness score (weighted average)
-            completeness_score = (discovery_rate * 0.3 + collection_rate * 0.5 + location_accuracy * 0.2)
+            device_readings = cursor.fetchall()
             
-            status = "PASS" if completeness_score >= 0.95 else "PARTIAL" if completeness_score >= 0.70 else "FAIL"
+            # Expected readings (5-minute intervals)
+            expected_per_device = (duration_hours * 60) / 5 if duration_hours > 0 else 0
+            expected_total = total_devices * expected_per_device
             
-            return {
-                "query_id": query_id,
-                "scenario": scenario,
-                "completeness_score": round(completeness_score, 2),
+            # Calculate collection rate
+            collection_rate = (total_readings / expected_total) if expected_total > 0 else 0
+            
+            # Check location mapping
+            cursor.execute("""
+                SELECT COUNT(DISTINCT device_id) as devices_with_location
+                FROM readings
+                WHERE timestamp >= datetime('now', '-{} days')
+                AND location IS NOT NULL AND location != ''
+            """.format(time_period_days))
+            
+            devices_with_location = cursor.fetchone()[0]
+            location_accuracy = devices_with_location / total_devices if total_devices > 0 else 0
+            
+            # Calculate gap analysis
+            cursor.execute("""
+                WITH ordered_readings AS (
+                    SELECT 
+                        device_id,
+                        timestamp,
+                        LAG(timestamp) OVER (PARTITION BY device_id ORDER BY timestamp) as prev_timestamp
+                    FROM readings
+                    WHERE timestamp >= datetime('now', '-{} days')
+                )
+                SELECT 
+                    COUNT(*) as total_gaps
+                FROM ordered_readings
+                WHERE prev_timestamp IS NOT NULL
+                AND (julianday(timestamp) - julianday(prev_timestamp)) * 24 * 60 > 10
+            """.format(time_period_days))
+            
+            total_gaps = cursor.fetchone()[0]
+            
+            # Overall completeness score
+            discovery_score = min(1.0, total_devices / 4)  # Expect 4 devices (2 Hue, 1 Amazon, 1 Nest)
+            completeness_score = (
+                discovery_score * 0.3 +
+                collection_rate * 0.5 +
+                location_accuracy * 0.2
+            )
+            
+            status = "EXCELLENT" if completeness_score >= 0.95 else "GOOD" if completeness_score >= 0.75 else "FAIR" if completeness_score >= 0.50 else "POOR"
+            
+            result = {
                 "status": status,
-                "discovery_rate": round(discovery_rate, 2),
-                "collection_rate": round(collection_rate, 2),
-                "location_accuracy": round(location_accuracy, 2),
-                "sensors_found": sensors_found,
-                "expected_sensors": expected_sensors,
-                "readings_collected": readings_collected,
-                "expected_readings": expected_readings
+                "completeness_score": round(completeness_score, 4),
+                "discovery_score": round(discovery_score, 4),
+                "collection_rate": round(collection_rate, 4),
+                "location_accuracy": round(location_accuracy, 4),
+                "time_period_days": time_period_days,
+                "duration_hours": round(duration_hours, 2),
+                "total_readings": total_readings,
+                "expected_readings": round(expected_total, 1),
+                "total_devices": total_devices,
+                "devices_by_type": devices_by_type,
+                "devices_with_location": devices_with_location,
+                "total_gaps_over_10min": total_gaps,
+                "device_breakdown": [
+                    {
+                        "device_type": row[0],
+                        "device_id": row[1][:50],  # Truncate long IDs
+                        "location": row[2],
+                        "reading_count": row[3],
+                        "expected_count": round(expected_per_device, 1),
+                        "collection_rate": round(row[3] / expected_per_device, 4) if expected_per_device > 0 else 0
+                    }
+                    for row in device_readings
+                ]
             }
-        
+            
+            conn.close()
+            
+            self.logger.info(
+                "Collection completeness evaluated",
+                score=result["completeness_score"],
+                status=status,
+                devices=total_devices,
+                readings=total_readings
+            )
+            
+            return result
+            
         except Exception as e:
-            logger.error(f"Error evaluating collection completeness for {query_id}: {str(e)}")
+            self.logger.error("Error evaluating collection completeness", error=str(e))
             return {
-                "query_id": query_id,
-                "completeness_score": 0.0,
                 "status": "ERROR",
-                "error": str(e)
+                "error": str(e),
+                "completeness_score": 0.0
             }
 
 
@@ -162,107 +211,104 @@ class DataQualityCorrectnessEvaluator:
     Metrics:
     - ISO 8601 timestamp format validation
     - Temperature value validation (within valid range)
-    - Device ID format validation (hue: prefix)
-    - Battery level validation (0-100)
-    - Location metadata presence and validity
+    - Device ID format validation
+    - Location metadata presence
+    - Data type correctness
     """
     
-    def __init__(self):
-        self.name = "data_quality_correctness"
+    def __init__(self, db_path: str, logger: StructuredLogger):
+        self.db_path = db_path
+        self.logger = logger
         self.min_temp = -10.0
         self.max_temp = 50.0
     
-    def __call__(
-        self,
-        *,
-        query_id: str,
-        scenario: str,
-        expected_temperature_range: Optional[str] = None,
-        expected_locations: Optional[str] = None,
-        expected_format: str = "ISO 8601",
-        **kwargs
-    ) -> Dict[str, Any]:
+    def evaluate(self, time_period_days: int = 1, sample_size: int = 1000) -> Dict[str, Any]:
         """
-        Evaluate data quality and correctness for a given query.
+        Evaluate data quality for the specified time period.
         
         Args:
-            query_id: Unique query identifier
-            scenario: Description of the test scenario
-            expected_temperature_range: Expected temperature range (e.g., "15-25")
-            expected_locations: Comma-separated expected sensor locations
-            expected_format: Expected data format (default: ISO 8601)
+            time_period_days: Number of days to analyze
+            sample_size: Number of readings to validate
             
         Returns:
-            Dict with quality score (0-1), status, and validation details
+            Dict with quality metrics
         """
         try:
-            responses_file = Path(__file__).parent.parent / "data" / "evaluation_responses.json"
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
             
-            if not responses_file.exists():
-                return {
-                    "query_id": query_id,
-                    "quality_score": 0.0,
-                    "status": "FAIL",
-                    "reason": "No evaluation responses file found"
-                }
+            # Sample readings for validation
+            cursor.execute("""
+                SELECT 
+                    id,
+                    timestamp,
+                    device_id,
+                    temperature_celsius,
+                    location,
+                    device_type,
+                    battery_level
+                FROM readings
+                WHERE timestamp >= datetime('now', '-{} days')
+                ORDER BY RANDOM()
+                LIMIT {}
+            """.format(time_period_days, sample_size))
             
-            with open(responses_file) as f:
-                eval_data = json.load(f)
+            readings = cursor.fetchall()
             
-            # Extract scenario response
-            scenario_response = None
-            for response in eval_data.get("evaluation_responses", []):
-                if response.get("query_id") == query_id:
-                    scenario_response = response
-                    break
-            
-            if not scenario_response:
-                return {
-                    "query_id": query_id,
-                    "quality_score": 0.0,
-                    "status": "NO_DATA"
-                }
-            
-            readings = scenario_response.get("readings_collected", [])
             if not readings:
+                self.logger.warning("No readings to validate", days=time_period_days)
                 return {
-                    "query_id": query_id,
-                    "quality_score": 0.0,
-                    "status": "NO_READINGS"
+                    "status": "NO_DATA",
+                    "quality_score": 0.0
                 }
             
-            # Validation scores
+            # Validation counters
             valid_timestamps = 0
             valid_temperatures = 0
             valid_device_ids = 0
-            valid_battery_levels = 0
             valid_locations = 0
+            valid_battery_levels = 0
+            
+            issues = []
             
             for reading in readings:
-                # Validate timestamp (ISO 8601)
-                timestamp = reading.get("timestamp", "")
-                if "T" in timestamp and ("+" in timestamp or "Z" in timestamp):
-                    valid_timestamps += 1
+                reading_id, timestamp, device_id, temp, location, device_type, battery = reading
+                
+                # Validate timestamp (ISO 8601 with timezone)
+                try:
+                    if timestamp and ("T" in timestamp and ("+" in timestamp or "Z" in timestamp or timestamp.endswith("+00:00"))):
+                        # Try parsing
+                        datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                        valid_timestamps += 1
+                    else:
+                        issues.append({"reading_id": reading_id, "issue": "invalid_timestamp_format", "value": timestamp})
+                except (ValueError, AttributeError):
+                    issues.append({"reading_id": reading_id, "issue": "timestamp_parse_error", "value": timestamp})
                 
                 # Validate temperature
-                temp = reading.get("temperature_celsius", None)
                 if temp is not None and self.min_temp <= temp <= self.max_temp:
                     valid_temperatures += 1
+                elif temp is not None:
+                    issues.append({"reading_id": reading_id, "issue": "temperature_out_of_range", "value": temp})
                 
-                # Validate device ID (hue: prefix)
-                device_id = reading.get("device_id", "")
-                if device_id.startswith("hue:"):
+                # Validate device ID (should have type prefix)
+                if device_id and ("hue:" in device_id or "alexa:" in device_id or "nest:" in device_id):
                     valid_device_ids += 1
-                
-                # Validate battery level (0-100)
-                battery = reading.get("battery_level", None)
-                if battery is not None and 0 <= battery <= 100:
-                    valid_battery_levels += 1
+                else:
+                    issues.append({"reading_id": reading_id, "issue": "invalid_device_id_format", "value": device_id})
                 
                 # Validate location
-                location = reading.get("location", "")
                 if location and location.strip():
                     valid_locations += 1
+                else:
+                    issues.append({"reading_id": reading_id, "issue": "missing_location", "device_id": device_id})
+                
+                # Validate battery level (if present, should be 0-100)
+                if battery is not None:
+                    if 0 <= battery <= 100:
+                        valid_battery_levels += 1
+                    else:
+                        issues.append({"reading_id": reading_id, "issue": "battery_out_of_range", "value": battery})
             
             num_readings = len(readings)
             
@@ -270,40 +316,48 @@ class DataQualityCorrectnessEvaluator:
             timestamp_score = valid_timestamps / num_readings if num_readings > 0 else 0
             temperature_score = valid_temperatures / num_readings if num_readings > 0 else 0
             device_id_score = valid_device_ids / num_readings if num_readings > 0 else 0
-            battery_score = valid_battery_levels / num_readings if num_readings > 0 else 0
             location_score = valid_locations / num_readings if num_readings > 0 else 0
             
             # Overall quality score (weighted average)
             quality_score = (
                 timestamp_score * 0.25 +
-                temperature_score * 0.25 +
-                device_id_score * 0.20 +
-                battery_score * 0.15 +
-                location_score * 0.15
+                temperature_score * 0.30 +
+                device_id_score * 0.25 +
+                location_score * 0.20
             )
             
-            status = "PASS" if quality_score >= 0.95 else "PARTIAL" if quality_score >= 0.70 else "FAIL"
+            status = "EXCELLENT" if quality_score >= 0.98 else "GOOD" if quality_score >= 0.90 else "FAIR" if quality_score >= 0.75 else "POOR"
             
-            return {
-                "query_id": query_id,
-                "scenario": scenario,
-                "quality_score": round(quality_score, 2),
+            result = {
                 "status": status,
-                "timestamp_validity": round(timestamp_score, 2),
-                "temperature_validity": round(temperature_score, 2),
-                "device_id_validity": round(device_id_score, 2),
-                "battery_validity": round(battery_score, 2),
-                "location_validity": round(location_score, 2),
-                "total_readings_validated": num_readings
+                "quality_score": round(quality_score, 4),
+                "timestamp_validity": round(timestamp_score, 4),
+                "temperature_validity": round(temperature_score, 4),
+                "device_id_validity": round(device_id_score, 4),
+                "location_validity": round(location_score, 4),
+                "total_readings_validated": num_readings,
+                "issues_found": len(issues),
+                "issues_sample": issues[:10]  # First 10 issues
             }
-        
+            
+            conn.close()
+            
+            self.logger.info(
+                "Data quality evaluated",
+                score=result["quality_score"],
+                status=status,
+                validated=num_readings,
+                issues=len(issues)
+            )
+            
+            return result
+            
         except Exception as e:
-            logger.error(f"Error evaluating data quality for {query_id}: {str(e)}")
+            self.logger.error("Error evaluating data quality", error=str(e))
             return {
-                "query_id": query_id,
-                "quality_score": 0.0,
                 "status": "ERROR",
-                "error": str(e)
+                "error": str(e),
+                "quality_score": 0.0
             }
 
 
@@ -312,243 +366,260 @@ class SystemReliabilityEvaluator:
     Evaluates system reliability and error handling.
     
     Metrics:
-    - Collection success rate
-    - Duplicate prevention effectiveness
-    - Database persistence accuracy
-    - Error handling and recovery
+    - Database lock errors (from logs)
+    - Retry attempt frequency and success rate
+    - System uptime and data gaps
+    - Error rate analysis
     """
     
-    def __init__(self):
-        self.name = "system_reliability"
+    def __init__(self, db_path: str, log_file_path: str, logger: StructuredLogger):
+        self.db_path = db_path
+        self.log_file_path = log_file_path
+        self.logger = logger
     
-    def __call__(
-        self,
-        *,
-        query_id: str,
-        scenario: str,
-        expected_success: bool = True,
-        expected_duplicates: int = 0,
-        expected_error: Optional[str] = None,
-        **kwargs
-    ) -> Dict[str, Any]:
+    def evaluate(self, time_period_days: int = 1) -> Dict[str, Any]:
         """
-        Evaluate system reliability for a given query.
+        Evaluate system reliability for the specified time period.
         
         Args:
-            query_id: Unique query identifier
-            scenario: Description of the test scenario
-            expected_success: Whether successful execution is expected
-            expected_duplicates: Expected number of duplicate readings
-            expected_error: Expected error type (if failure is expected)
+            time_period_days: Number of days to analyze
             
         Returns:
-            Dict with reliability score (0-1), status, and details
+            Dict with reliability metrics
         """
         try:
-            responses_file = Path(__file__).parent.parent / "data" / "evaluation_responses.json"
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
             
-            if not responses_file.exists():
+            # Get database statistics
+            cursor.execute("""
+                SELECT COUNT(*), MIN(timestamp), MAX(timestamp)
+                FROM readings
+                WHERE timestamp >= datetime('now', '-{} days')
+            """.format(time_period_days))
+            
+            total_readings, min_time, max_time = cursor.fetchone()
+            
+            if not min_time or not max_time:
                 return {
-                    "query_id": query_id,
-                    "reliability_score": 0.0,
-                    "status": "FAIL",
-                    "reason": "No evaluation responses file found"
+                    "status": "NO_DATA",
+                    "reliability_score": 0.0
                 }
             
-            with open(responses_file) as f:
-                eval_data = json.load(f)
+            # Parse log file for errors
+            log_path = Path(self.log_file_path)
+            db_lock_errors = 0
+            retry_attempts = 0
+            total_errors = 0
+            error_types = {}
             
-            # Extract scenario response
-            scenario_response = None
-            for response in eval_data.get("evaluation_responses", []):
-                if response.get("query_id") == query_id:
-                    scenario_response = response
-                    break
+            if log_path.exists():
+                with open(log_path, 'r') as f:
+                    for line in f:
+                        try:
+                            log_entry = json.loads(line.strip())
+                            level = log_entry.get('level', '')
+                            message = log_entry.get('message', '')
+                            
+                            # Count errors
+                            if level in ['ERROR', 'CRITICAL']:
+                                total_errors += 1
+                                error_types[message] = error_types.get(message, 0) + 1
+                            
+                            # Count database lock errors
+                            if 'database' in message.lower() and 'lock' in message.lower():
+                                db_lock_errors += 1
+                            
+                            # Count retry attempts
+                            if 'retry' in message.lower() and 'attempt' in message.lower():
+                                retry_attempts += 1
+                                
+                        except json.JSONDecodeError:
+                            continue
             
-            if not scenario_response:
-                return {
-                    "query_id": query_id,
-                    "reliability_score": 0.0,
-                    "status": "NO_DATA"
-                }
+            # Calculate uptime metrics
+            start_dt = datetime.fromisoformat(min_time.replace('+00:00', '')).replace(tzinfo=timezone.utc)
+            end_dt = datetime.fromisoformat(max_time.replace('+00:00', '')).replace(tzinfo=timezone.utc)
+            duration_hours = (end_dt - start_dt).total_seconds() / 3600
             
-            # Check execution result
-            execution_result = scenario_response.get("execution_result")
-            success_as_expected = (execution_result == "success") == expected_success
+            # Check WAL mode
+            cursor.execute("PRAGMA journal_mode")
+            journal_mode = cursor.fetchone()[0]
+            wal_enabled = journal_mode.upper() == 'WAL'
             
-            # Check database persistence
-            db_stored = scenario_response.get("database_stored", 0)
-            db_errors = scenario_response.get("database_errors", 0)
-            db_duplicates = scenario_response.get("database_duplicates", 0)
+            # Calculate reliability scores
+            db_lock_score = 1.0 if db_lock_errors == 0 else 0.5 if db_lock_errors < 5 else 0.0
+            wal_score = 1.0 if wal_enabled else 0.0
+            uptime_score = 1.0 if duration_hours >= 24 else duration_hours / 24
             
-            # Calculate reliability metrics
-            execution_score = 1.0 if success_as_expected else 0.0
+            # Error rate per hour
+            error_rate = total_errors / duration_hours if duration_hours > 0 else 0
+            error_score = 1.0 if error_rate < 1 else 0.8 if error_rate < 5 else 0.5 if error_rate < 10 else 0.0
             
-            # Duplicate prevention score
-            duplicate_score = 1.0 if db_duplicates == expected_duplicates else 0.5
-            
-            # Database persistence score
-            persistence_score = 1.0 if db_errors == 0 else 0.0
-            
-            # Error handling score (success rate for multi-cycle operations)
-            collection_success_rate = 1.0
-            if "readings_collected" in scenario_response:
-                readings = scenario_response.get("readings_collected", [])
-                if readings:
-                    # All readings successfully collected and stored
-                    readings_vs_stored = db_stored / len(readings) if readings else 0
-                    collection_success_rate = min(1.0, readings_vs_stored)
-            
-            # Overall reliability score (weighted average)
+            # Overall reliability score
             reliability_score = (
-                execution_score * 0.25 +
-                collection_success_rate * 0.35 +
-                duplicate_score * 0.25 +
-                persistence_score * 0.15
+                db_lock_score * 0.35 +
+                wal_score * 0.25 +
+                uptime_score * 0.20 +
+                error_score * 0.20
             )
             
-            status = "PASS" if reliability_score >= 0.95 else "PARTIAL" if reliability_score >= 0.70 else "FAIL"
+            status = "EXCELLENT" if reliability_score >= 0.95 else "GOOD" if reliability_score >= 0.80 else "FAIR" if reliability_score >= 0.60 else "POOR"
             
-            return {
-                "query_id": query_id,
-                "scenario": scenario,
-                "reliability_score": round(reliability_score, 2),
+            result = {
                 "status": status,
-                "execution_score": round(execution_score, 2),
-                "collection_success_rate": round(collection_success_rate, 2),
-                "duplicate_prevention_score": round(duplicate_score, 2),
-                "persistence_score": round(persistence_score, 2),
-                "database_stored": db_stored,
-                "database_errors": db_errors,
-                "database_duplicates": db_duplicates
+                "reliability_score": round(reliability_score, 4),
+                "db_lock_score": round(db_lock_score, 4),
+                "wal_score": round(wal_score, 4),
+                "uptime_score": round(uptime_score, 4),
+                "error_score": round(error_score, 4),
+                "database_lock_errors": db_lock_errors,
+                "retry_attempts": retry_attempts,
+                "total_errors": total_errors,
+                "error_rate_per_hour": round(error_rate, 2),
+                "wal_mode_enabled": wal_enabled,
+                "journal_mode": journal_mode,
+                "duration_hours": round(duration_hours, 2),
+                "total_readings": total_readings,
+                "top_errors": sorted(error_types.items(), key=lambda x: x[1], reverse=True)[:5]
             }
-        
+            
+            conn.close()
+            
+            self.logger.info(
+                "System reliability evaluated",
+                score=result["reliability_score"],
+                status=status,
+                db_locks=db_lock_errors,
+                errors=total_errors
+            )
+            
+            return result
+            
         except Exception as e:
-            logger.error(f"Error evaluating system reliability for {query_id}: {str(e)}")
+            self.logger.error("Error evaluating system reliability", error=str(e))
             return {
-                "query_id": query_id,
-                "reliability_score": 0.0,
                 "status": "ERROR",
-                "error": str(e)
+                "error": str(e),
+                "reliability_score": 0.0
             }
 
 
 def run_evaluation(
-    data_path: str = "data/evaluation_data.jsonl",
+    time_period_days: int = 1,
     output_path: str = "data/evaluation_results.json"
 ) -> Dict[str, Any]:
     """
     Run comprehensive evaluation of the temperature monitoring system.
     
     Args:
-        data_path: Path to evaluation data file (JSONL format)
+        time_period_days: Number of days to analyze
         output_path: Path to save evaluation results
         
     Returns:
         Dictionary containing evaluation results
     """
+    # Load config and initialize logger
+    config = load_config()
+    logger = StructuredLogger(config)
+    
     logger.info("=" * 80)
-    logger.info("🎯 Starting Temperature Monitoring System Evaluation")
+    logger.info("Starting Temperature Monitoring System Evaluation", days=time_period_days)
     logger.info("=" * 80)
     
-    # Resolve paths relative to workspace root
+    # Resolve paths
     workspace_root = Path(__file__).parent.parent
-    data_file = workspace_root / data_path
+    db_path = workspace_root / "data" / "readings.db"
+    log_path = workspace_root / config.get('logging', {}).get('log_file_path', 'logs/collection.log')
     results_file = workspace_root / output_path
     
-    if not data_file.exists():
-        logger.error(f"❌ Evaluation data file not found: {data_file}")
-        return {"status": "ERROR", "message": f"Data file not found: {data_file}"}
+    if not db_path.exists():
+        logger.error("Database file not found", path=str(db_path))
+        return {"status": "ERROR", "message": f"Database file not found: {db_path}"}
     
-    logger.info(f"📂 Using evaluation data: {data_file}")
-    logger.info(f"💾 Results will be saved to: {results_file}")
+    logger.info("Using database", path=str(db_path))
+    logger.info("Using log file", path=str(log_path))
+    logger.info("Results will be saved to", path=str(results_file))
     
     # Initialize evaluators
-    logger.info("\n📊 Initializing custom evaluators...")
-    evaluators = {
-        "collection_completeness": CollectionCompletenessEvaluator(),
-        "data_quality_correctness": DataQualityCorrectnessEvaluator(),
-        "system_reliability": SystemReliabilityEvaluator()
-    }
-    logger.info("✅ Evaluators initialized successfully")
+    logger.info("Initializing evaluators")
     
-    # Define evaluator configuration for data mapping
-    evaluator_config = {
-        "collection_completeness": {
-            "column_mapping": {
-                "query_id": "${data.query_id}",
-                "scenario": "${data.scenario}",
-                "expected_sensors": "${data.expected_sensors}",
-                "expected_readings": "${data.expected_readings}",
-                "expected_locations": "${data.expected_locations}"
-            }
+    completeness_evaluator = CollectionCompletenessEvaluator(str(db_path), logger)
+    quality_evaluator = DataQualityCorrectnessEvaluator(str(db_path), logger)
+    reliability_evaluator = SystemReliabilityEvaluator(str(db_path), str(log_path), logger)
+    
+    logger.info("Running evaluation framework")
+    
+    # Run evaluations
+    results = {
+        "evaluation_metadata": {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "time_period_days": time_period_days,
+            "database_path": str(db_path),
+            "log_file_path": str(log_path)
         },
-        "data_quality_correctness": {
-            "column_mapping": {
-                "query_id": "${data.query_id}",
-                "scenario": "${data.scenario}",
-                "expected_temperature_range": "${data.expected_temperature_range}",
-                "expected_locations": "${data.expected_locations}",
-                "expected_format": "${data.expected_format}"
-            }
-        },
-        "system_reliability": {
-            "column_mapping": {
-                "query_id": "${data.query_id}",
-                "scenario": "${data.scenario}",
-                "expected_success": "${data.expected_success}",
-                "expected_duplicates": "${data.expected_duplicates}",
-                "expected_error": "${data.expected_error}"
-            }
-        }
+        "collection_completeness": completeness_evaluator.evaluate(time_period_days),
+        "data_quality_correctness": quality_evaluator.evaluate(time_period_days),
+        "system_reliability": reliability_evaluator.evaluate(time_period_days)
     }
     
-    try:
-        logger.info("\n🚀 Running evaluation framework...")
-        logger.info(f"📋 Processing {sum(1 for _ in open(data_file))} evaluation scenarios...\n")
-        
-        # Run the evaluate API
-        result = evaluate(
-            data=str(data_file),
-            evaluators=evaluators,
-            evaluator_config=evaluator_config,
-            output_path=str(results_file),
-            display_progress_bar=True
-        )
-        
-        logger.info("\n✅ Evaluation completed successfully!")
-        logger.info("=" * 80)
-        
-        # Calculate aggregate metrics
-        if hasattr(result, 'to_dict'):
-            result_dict = result.to_dict()
-        else:
-            result_dict = dict(result)
-        
-        # Log summary
-        logger.info("\n📈 EVALUATION SUMMARY")
-        logger.info("=" * 80)
-        
-        metrics = result_dict.get("metrics", {})
-        
-        for metric_name, metric_value in metrics.items():
-            logger.info(f"  {metric_name}: {metric_value}")
-        
-        logger.info("\n✅ Full results saved to: " + str(results_file))
-        logger.info("=" * 80 + "\n")
-        
-        return result_dict
+    # Calculate overall score
+    overall_score = (
+        results["collection_completeness"].get("completeness_score", 0) * 0.35 +
+        results["data_quality_correctness"].get("quality_score", 0) * 0.30 +
+        results["system_reliability"].get("reliability_score", 0) * 0.35
+    )
     
-    except Exception as e:
-        logger.error(f"\n❌ Evaluation failed with error: {str(e)}")
-        logger.error("=" * 80)
-        raise
+    results["overall_score"] = round(overall_score, 4)
+    results["overall_status"] = (
+        "EXCELLENT" if overall_score >= 0.95 else
+        "GOOD" if overall_score >= 0.80 else
+        "FAIR" if overall_score >= 0.60 else
+        "POOR"
+    )
+    
+    # Save results
+    results_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(results_file, 'w') as f:
+        json.dump(results, f, indent=2)
+    
+    logger.info("Evaluation completed successfully")
+    logger.info("=" * 80)
+    logger.info("EVALUATION SUMMARY")
+    logger.info("=" * 80)
+    logger.info("Overall Score", score=results["overall_score"], status=results["overall_status"])
+    logger.info("Collection Completeness", score=results["collection_completeness"].get("completeness_score", 0))
+    logger.info("Data Quality", score=results["data_quality_correctness"].get("quality_score", 0))
+    logger.info("System Reliability", score=results["system_reliability"].get("reliability_score", 0))
+    logger.info("Results saved to", path=str(results_file))
+    logger.info("=" * 80)
+    
+    return results
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Evaluate Home Temperature Monitoring System")
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=1,
+        help="Number of days to analyze (default: 1)"
+    )
+    parser.add_argument(
+        "--output-path",
+        type=str,
+        default="data/evaluation_results.json",
+        help="Output path for results (default: data/evaluation_results.json)"
+    )
+    
+    args = parser.parse_args()
+    
     try:
-        results = run_evaluation()
-        sys.exit(0)
+        results = run_evaluation(
+            time_period_days=args.days,
+            output_path=args.output_path
+        )
+        sys.exit(0 if results.get("overall_status") in ["EXCELLENT", "GOOD"] else 1)
     except Exception as e:
-        logger.error(f"Fatal error: {str(e)}")
+        print(f"Fatal error: {str(e)}", file=sys.stderr)
         sys.exit(1)
