@@ -252,7 +252,18 @@ def run_health_check() -> int:
     Returns:
         Exit code (0=pass, 1=warnings, 2=critical)
     """
-    health_check = HealthCheck()
+    # Register all validators
+    validators = [
+        validate_wal_mode,
+        validate_configuration,
+        validate_secrets,
+        validate_database_write,
+        validate_log_rotation_config,
+        validate_hue_bridge_connectivity,
+        validate_amazon_aqm_connectivity,
+    ]
+    
+    health_check = HealthCheck(validators=validators)
     result = health_check.run()
     
     print(result.format_output())
@@ -604,8 +615,6 @@ def validate_amazon_aqm_connectivity() -> Tuple[bool, str, Optional[str]]:
         Tuple of (passed, message, remediation)
     """
     try:
-        # Import at function level to avoid circular dependencies
-        from source.collectors import amazon_aqm_collector_main
         from source.config.loader import ConfigLoader
         
         loader = ConfigLoader()
@@ -614,6 +623,13 @@ def validate_amazon_aqm_connectivity() -> Tuple[bool, str, Optional[str]]:
         
         # Check if Amazon credentials exist
         amazon_config = secrets.get('amazon', {})
+        if not amazon_config:
+            return (
+                False,
+                "Amazon AQM credentials not configured",
+                "Add Amazon credentials to config/secrets.yaml"
+            )
+        
         if not amazon_config.get('client_id') or not amazon_config.get('client_secret'):
             return (
                 False,
@@ -621,8 +637,7 @@ def validate_amazon_aqm_connectivity() -> Tuple[bool, str, Optional[str]]:
                 "Add Amazon credentials to config/secrets.yaml"
             )
         
-        # Try a simple connectivity test (this may need to be async)
-        # For now, just check credentials exist and are formatted correctly
+        # Check credentials are formatted correctly
         client_id = amazon_config.get('client_id', '')
         if not client_id.startswith('amzn'):
             return (

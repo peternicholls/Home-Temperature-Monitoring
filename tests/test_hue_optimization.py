@@ -474,24 +474,41 @@ def test_optimization_performance_metrics_logged(
     import logging
     caplog.set_level(logging.INFO)
     
-    with patch('requests.get') as mock_get:
-        mock_response = Mock()
-        mock_response.json.return_value = sample_sensors_response
-        mock_response.text = json.dumps(sample_sensors_response)
-        mock_response.raise_for_status = Mock()
-        mock_get.return_value = mock_response
-        
-        # Collect readings
-        readings = collect_all_readings(mock_bridge, mock_config)
-        
-        # Verify performance metrics logged
-        assert len(readings) == 2
-        
-        # Check for API optimization log message
-        log_messages = [record.message for record in caplog.records]
-        optimization_logs = [msg for msg in log_messages if "API optimization" in msg]
-        
-        assert len(optimization_logs) > 0, "Expected API optimization metrics to be logged"
+    # Mock discover_sensors to return test sensors
+    mock_sensors = [
+        {
+            'sensor_id': '1',
+            'location': 'Living Room',
+            'unique_id': '00:17:88:01:ab:cd:ef:01-02-0402',
+            'model': 'SML001'
+        },
+        {
+            'sensor_id': '2',
+            'location': 'Bedroom',
+            'unique_id': '00:17:88:01:ab:cd:ef:02-02-0402',
+            'model': 'SML001'
+        }
+    ]
+    
+    with patch('source.collectors.hue_collector.discover_sensors', return_value=mock_sensors):
+        with patch('requests.get') as mock_get:
+            mock_response = Mock()
+            mock_response.json.return_value = sample_sensors_response
+            mock_response.text = json.dumps(sample_sensors_response)
+            mock_response.raise_for_status = Mock()
+            mock_get.return_value = mock_response
+            
+            # Collect readings
+            readings = collect_all_readings(mock_bridge, mock_config)
+            
+            # Verify performance metrics logged
+            assert len(readings) == 2
+            
+            # Check for API optimization log message
+            log_messages = [record.message for record in caplog.records]
+            optimization_logs = [msg for msg in log_messages if "API optimization" in msg]
+            
+            assert len(optimization_logs) > 0, "Expected API optimization metrics to be logged"
 
 
 def test_optimization_comparison_to_baseline(tmp_path):

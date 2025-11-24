@@ -18,6 +18,7 @@ Usage:
 
 import argparse
 import json
+import logging
 import sys
 import time
 import yaml
@@ -26,6 +27,9 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from source.utils.retry import retry_with_backoff, TransientError
 from source.utils.structured_logger import StructuredLogger
+
+# Standard logger for fallback when structured logger not available
+stdlib_logger = logging.getLogger(__name__)
 
 # Ensure project root is on sys.path so `import source.*` works when running as script
 try:
@@ -492,9 +496,13 @@ def collect_all_readings(bridge: Bridge, config: dict) -> List[Dict]:
             response_size = sys.getsizeof(response.text)
             if logger:
                 logger.info(f"API optimization: fetched all sensors in {duration_ms}ms ({response_size} bytes)")
+            else:
+                stdlib_logger.info(f"API optimization: fetched all sensors in {duration_ms}ms ({response_size} bytes)")
         except Exception as e:
             if logger:
                 logger.warning(f"Failed to cache sensors data, will use per-sensor calls: {e}")
+            else:
+                stdlib_logger.warning(f"Failed to cache sensors data, will use per-sensor calls: {e}")
             cached_sensors_data = None
 
     for sensor_info in sensors:

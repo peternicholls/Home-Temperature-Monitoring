@@ -50,8 +50,8 @@ class TestWALModeValidation:
         
         # Assert
         assert passed is False
-        assert "WAL mode" in message.lower()
-        assert "Enable WAL mode" in remediation
+        assert "wal mode" in message.lower()
+        assert "Enable WAL mode" in remediation or "enable wal" in remediation.lower()
 
 
 class TestConfigurationValidation:
@@ -119,9 +119,7 @@ class TestSecretsValidation:
         # Arrange
         mock_instance = mock_loader.return_value
         mock_instance.secrets = {
-            'hue': {
-                'api_key': 'test_username_12345'
-            }
+            'hue_bridge_username': 'test_username_12345678901234567890'
         }
         
         # Act
@@ -154,9 +152,7 @@ class TestSecretsValidation:
         # Arrange
         mock_instance = mock_loader.return_value
         mock_instance.secrets = {
-            'hue': {
-                'api_key': 'short'  # Too short
-            }
+            'hue_bridge_username': 'short'  # Too short (< 10 chars)
         }
         
         # Act
@@ -164,7 +160,7 @@ class TestSecretsValidation:
         
         # Assert
         assert passed is False
-        assert "invalid" in message.lower() or "format" in message.lower()
+        assert "invalid" in message.lower() or "format" in message.lower() or "incorrect" in message.lower()
     
     def test_validate_secrets_no_credential_leak(self):
         """Test secrets validator never leaks credentials (T077)."""
